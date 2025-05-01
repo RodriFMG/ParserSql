@@ -2,17 +2,55 @@ from enum import Enum
 
 
 class Type(Enum):
-    SELECT = "SELECT",
-    FROM = "FROM",
-    ID = "ID",
-    WHERE = "WHERE",
-    END = "END",
-    ERR = "ERR",
-    PC = "PC"
+    #palabras claves
+    SELECT = "SELECT"
+    FROM = "FROM"
+    WHERE = "WHERE"
+    BETWEEN = "BETWEEN"
+    INSERT = "INSERT"
+    INTO = "INTO"
+    VALUES = "VALUES"
+    DELETE = "DELETE"
+    CREATE = "CREATE"
+    TABLE = "TABLE"
+    FILE = "FILE"
+    USING = "USING"
+    INDEX = "INDEX"
+    PRIMARY = "PRIMARY"
+    KEY = "KEY"
+
+    #tipo de datos
+    INT = "INT"
+    TEXT = "TEXT"
+    DATE = "DATE"
+    ARRAY = "ARRAY"
+    FLOAT = "FLOAT"
+
+    #simbolos y operadores
+    STAR = "*"
+    EQ = "="
+    COMA = ","
+    SEMICOLON = ";"
+    LPAREN = "("
+    RPAREN = ")"
+    LBRACKET = "["
+    RBRACKET = "]"
+
+    #literales
+    STRING = "STRING"
+    NUMBER = "NUMBER"
+    ID = "ID"
+
+    #final y error
+    EOF = "EOF"
+    ERR = "ERR"
 
 
 class Token:
-
     def __init__(self, t_type: Type, s_token: str = None):
         self.type = t_type
-        self.text = s_token if s_token else t_type.value
+        self.cad = s_token if s_token else t_type.value
+
+    def __repr__(self):
+        return f"TOKEN({self.type.name}, '{self.cad}')"
+
