@@ -1,8 +1,7 @@
 from enum import Enum
 
-
 class Type(Enum):
-    #palabras claves
+    # Palabras clave
     SELECT = "SELECT"
     FROM = "FROM"
     WHERE = "WHERE"
@@ -19,49 +18,57 @@ class Type(Enum):
     PRIMARY = "PRIMARY"
     KEY = "KEY"
 
-    #tipo de datos
+    # Tipos de datos
     INT = "INT"
     TEXT = "TEXT"
     DATE = "DATE"
     ARRAY = "ARRAY"
     FLOAT = "FLOAT"
 
-    #operadores y simbolos
-    PLUS = "+"
-    MINUS = "-"
-    MUL = "*"
-    DIV = "/"
-    EQ = "="
-    LT = "<"
-    GT = ">"
-    LE = "<="
-    GE = ">="
-    NEQ = "<>"
+    # Literales booleanos
+    TRUE = "TRUE"
+    FALSE = "FALSE"
 
+    # Operadores lógicos
+    AND = "AND"
+    OR = "OR"
+    NOT = "NOT"
+
+    # Símbolos y operadores
+    STAR = "*"
+    EQ = "="
     COMA = ","
     SEMICOLON = ";"
     LPAREN = "("
     RPAREN = ")"
     LBRACKET = "["
     RBRACKET = "]"
-    STAR = "*"
 
+    # Operadores binarios
+    PLUS = "+"
+    MINUS = "-"
+    DIV = "/"
+    LESS = "<"
+    EQLESS = "<="
+    MAYOR = ">"
+    EQMAYOR = ">="
+    NEQ = "<>"
 
-    #literales
+    # Literales
     STRING = "STRING"
     NUMBER = "NUMBER"
     ID = "ID"
 
-    #final y error
+    # Final y error
     EOF = "EOF"
     ERR = "ERR"
-
 
 class Token:
     def __init__(self, t_type: Type, s_token: str = None):
         self.type = t_type
-        self.cad = s_token if s_token else t_type.value
+        self.text = s_token if s_token else t_type.value
 
     def __repr__(self):
-        return f"TOKEN({self.type.name}, '{self.cad}')"
+        return f"TOKEN({self.type.name}, '{self.text}')"
+
 

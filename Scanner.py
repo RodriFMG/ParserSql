@@ -1,8 +1,7 @@
-from token import Token, Type
+from Token import Token, Type
 
 def is_space_white(c: str):
     return c in [' ', '\n', '\t', '\r']
-
 
 class Scanner:
     def __init__(self, code: str):
@@ -17,24 +16,24 @@ class Scanner:
         if self.current >= len(self.code):
             return Token(Type.EOF)
 
-        # operadores de dos caracteres
+        #Operadores dobles (<=, >=, <>)
         if self.code[self.current:self.current + 2] == "<=":
             self.current += 2
-            return Token(Type.LE, "<=")
+            return Token(Type.EQLESS, "<=")
         elif self.code[self.current:self.current + 2] == ">=":
             self.current += 2
-            return Token(Type.GE, ">=")
+            return Token(Type.EQMAYOR, ">=")
         elif self.code[self.current:self.current + 2] == "<>":
             self.current += 2
             return Token(Type.NEQ, "<>")
 
         c = self.code[self.current]
         self.first = self.current
+        self.current += 1
 
-        # palabras clave o identificador
+        #Palabras clave y booleanos
         if c.isalpha():
-            self.current += 1
-            while self.current < len(self.code) and (self.code[self.current].isalnum() or self.code[self.current] == '_'):
+            while self.current < len(self.code) and self.code[self.current].isalnum():
                 self.current += 1
             word = self.code[self.first:self.current].upper()
 
@@ -59,6 +58,11 @@ class Scanner:
                 "DATE": Type.DATE,
                 "ARRAY": Type.ARRAY,
                 "FLOAT": Type.FLOAT,
+                "TRUE": Type.TRUE,
+                "FALSE": Type.FALSE,
+                "AND": Type.AND,
+                "OR": Type.OR,
+                "NOT": Type.NOT
             }
 
             if word in keyword_map:
@@ -66,46 +70,42 @@ class Scanner:
             else:
                 return Token(Type.ID, word)
 
-        # numeros
+        #Numeros
         elif c.isdigit():
-            self.current += 1
             while self.current < len(self.code) and self.code[self.current].isdigit():
                 self.current += 1
             return Token(Type.NUMBER, self.code[self.first:self.current])
 
-        # string entre comillas dobles
+        #Strings
         elif c == '"':
-            self.current += 1  # saltar comilla inicial
             start = self.current
             while self.current < len(self.code) and self.code[self.current] != '"':
                 self.current += 1
             text = self.code[start:self.current]
-            self.current += 1  # saltar comilla final
+            self.current += 1
             return Token(Type.STRING, text)
 
-        # símbolos de un carácter
+        #Simbolos
         symbol_map = {
-            '+': Type.PLUS,
-            '-': Type.MINUS,
-            '*': Type.MUL,
-            '/': Type.DIV,
+            '*': Type.STAR,
             '=': Type.EQ,
-            '<': Type.LT,
-            '>': Type.GT,
             ',': Type.COMA,
             ';': Type.SEMICOLON,
             '(': Type.LPAREN,
             ')': Type.RPAREN,
             '[': Type.LBRACKET,
             ']': Type.RBRACKET,
+            '+': Type.PLUS,
+            '-': Type.MINUS,
+            '/': Type.DIV,
+            '<': Type.LESS,
+            '>': Type.MAYOR
         }
 
         if c in symbol_map:
-            self.current += 1
             return Token(symbol_map[c], c)
 
-        # si no se reconoce el carácter
-        self.current += 1
         return Token(Type.ERR, c)
+
 
 
