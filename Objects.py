@@ -60,6 +60,14 @@ class NotExp(Exp):
     def accept(self, visitor):
         return visitor.visit_not_exp(self)
 
+class StringExp(Exp):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+
+    def accept(self, visitor):
+        return visitor.visit_string_exp(self)
+
 #ESTRUCTURA DE ATRIBUTOS
 
 class Atributo:
