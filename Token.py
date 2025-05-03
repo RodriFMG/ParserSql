@@ -26,15 +26,26 @@ class Type(Enum):
     ARRAY = "ARRAY"
     FLOAT = "FLOAT"
 
-    #simbolos y operadores
-    STAR = "*"
+    #operadores y simbolos
+    PLUS = "+"
+    MINUS = "-"
+    MUL = "*"
+    DIV = "/"
     EQ = "="
+    LT = "<"
+    GT = ">"
+    LE = "<="
+    GE = ">="
+    NEQ = "<>"
+
     COMA = ","
     SEMICOLON = ";"
     LPAREN = "("
     RPAREN = ")"
     LBRACKET = "["
     RBRACKET = "]"
+    STAR = "*"
+
 
     #literales
     STRING = "STRING"

@@ -1,4 +1,3 @@
-# scanner.py
 from token import Token, Type
 
 def is_space_white(c: str):
@@ -18,12 +17,24 @@ class Scanner:
         if self.current >= len(self.code):
             return Token(Type.EOF)
 
+        # operadores de dos caracteres
+        if self.code[self.current:self.current + 2] == "<=":
+            self.current += 2
+            return Token(Type.LE, "<=")
+        elif self.code[self.current:self.current + 2] == ">=":
+            self.current += 2
+            return Token(Type.GE, ">=")
+        elif self.code[self.current:self.current + 2] == "<>":
+            self.current += 2
+            return Token(Type.NEQ, "<>")
+
         c = self.code[self.current]
         self.first = self.current
 
-        #palabras clave
+        # palabras clave o identificador
         if c.isalpha():
-            while self.current < len(self.code) and self.code[self.current].isalnum():
+            self.current += 1
+            while self.current < len(self.code) and (self.code[self.current].isalnum() or self.code[self.current] == '_'):
                 self.current += 1
             word = self.code[self.first:self.current].upper()
 
@@ -55,27 +66,32 @@ class Scanner:
             else:
                 return Token(Type.ID, word)
 
-        #numeros
+        # numeros
         elif c.isdigit():
+            self.current += 1
             while self.current < len(self.code) and self.code[self.current].isdigit():
                 self.current += 1
             return Token(Type.NUMBER, self.code[self.first:self.current])
 
-        #string
+        # string entre comillas dobles
         elif c == '"':
-            self.current += 1
+            self.current += 1  # saltar comilla inicial
             start = self.current
             while self.current < len(self.code) and self.code[self.current] != '"':
                 self.current += 1
             text = self.code[start:self.current]
-            self.current += 1
+            self.current += 1  # saltar comilla final
             return Token(Type.STRING, text)
 
-        #simbolos
-        self.current += 1
+        # símbolos de un carácter
         symbol_map = {
-            '*': Type.STAR,
+            '+': Type.PLUS,
+            '-': Type.MINUS,
+            '*': Type.MUL,
+            '/': Type.DIV,
             '=': Type.EQ,
+            '<': Type.LT,
+            '>': Type.GT,
             ',': Type.COMA,
             ';': Type.SEMICOLON,
             '(': Type.LPAREN,
@@ -85,7 +101,11 @@ class Scanner:
         }
 
         if c in symbol_map:
+            self.current += 1
             return Token(symbol_map[c], c)
 
+        # si no se reconoce el carácter
+        self.current += 1
         return Token(Type.ERR, c)
+
 
