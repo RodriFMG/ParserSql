@@ -1,7 +1,7 @@
 from Token import Token, Type
 from Scanner import Scanner
 from Objects import Stms, Program, SelectStatement, NumberExp, IdExp, BoolExp, BinaryExp, StringExp, InsertStatement, \
-    DeleteStatement, CreateTable, CreateTableFromFile
+    DeleteStatement, CreateTable, CreateTableFromFile, BetweenExp
 from Constantes import BinaryOp
 
 
@@ -82,7 +82,7 @@ class ParserSQL:
             query = None
 
             if self.match(Type.WHERE):
-                query = self.ParseLogicExp()
+                query = self.ParseBetweenExp()
 
             return SelectStatement(atributos, table, query)
 
@@ -159,7 +159,7 @@ class ParserSQL:
             condition = None
 
             if self.match(Type.WHERE):
-                condition = self.ParseLogicExp()
+                condition = self.ParseBetweenExp()
 
             return DeleteStatement(table, condition)
 
@@ -206,10 +206,49 @@ class ParserSQL:
 
                     if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
                             Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN):
-                        raise ValueError("Se esperaba tipo de dato")
-                    col_type = self.previous.type
 
-                    columns.append((col_name, col_type))
+                        # Rescato el tipo de dato ARRAY -> ARRAY[TypeData]
+                        if self.match(Type.ARRAY):
+
+                            col_type = [self.previous.type]
+
+                            if not self.match(Type.LBRACKET):
+                                raise ValueError("Se esperaba una llave en la declaración del ARRAY")
+
+
+                            if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
+                            Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN):
+                                raise ValueError("Se esperaba un tipo de dato en la declaración del ARRAY")
+
+                            col_type = [col_type, self.previous.type]
+
+                            if not self.match(Type.RBRACKET):
+                                col_type += "]"
+
+                        else:
+                            raise ValueError("Se esperaba tipo de dato")
+
+                    else:
+                        # Rescato el tipo de dato simple.
+                        col_type = self.previous.type
+
+                    is_primary_key = False
+                    if self.match(Type.PRIMARY):
+                        if not self.match(Type.KEY):
+                            raise ValueError(f"Se esperaba un PRIMARY KEY, pero se encontró PRIMARY "
+                                             f"{self.current.text}")
+                        is_primary_key = True
+
+                    Index = None
+
+                    if self.match(Type.INDEX):
+                        if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE):
+                            raise ValueError(f"No existe el indice: {self.current.text}")
+
+                        Index = self.previous.text
+
+                    # Atributo Name - Atributo Type - Primary Key - Index Type
+                    columns.append((col_name, col_type, is_primary_key, Index))
 
                     if not self.match(Type.COMA):
                         break
@@ -221,6 +260,24 @@ class ParserSQL:
 
         else:
             raise ValueError(f"Sentencia no reconocida: {self.current.text}")
+
+    def ParseBetweenExp(self):
+
+        # Se espera que sea un string, pero para seguir el flujo...
+        atributo = self.ParseLogicExp()
+
+        if self.match(Type.BETWEEN):
+            left = self.ParseCEXP()
+
+            if not self.match(Type.AND):
+                raise ValueError("Se esperaba un AND en el BETWEEN")
+
+            right = self.ParseCEXP()
+
+            return BetweenExp(atributo, left, right)
+
+        return atributo
+
 
     def ParseLogicExp(self):
         left = self.ParseCEXP()
@@ -263,7 +320,7 @@ class ParserSQL:
             elif self.previous.type == Type.EQMAYOR:
                 op = BinaryOp.EQMAYOR_OP
             else:
-                op = BinaryOp.NEQ_OP
+                op = BinaryOp.NOTEQUAL_OP
 
             right = self.ParseExp()
             left = BinaryExp(left, op, right)

@@ -58,7 +58,14 @@ class LogicalExp(Exp):
     def accept(self, visitor):
         return visitor.visit_logical_exp(self)
 
+class BetweenExp(Exp):
+    def __init__(self, atribute, left, right):
+        self.atribute = atribute
+        self.left = left
+        self.right = right
 
+    def accept(self, visitor):
+        return visitor.visit_between_exp(self)
 class NotExp(Exp):
     def __init__(self, exp):
         super().__init__()

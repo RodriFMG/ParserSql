@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Type(Enum):
     # Palabras clave
     SELECT = "SELECT"
@@ -14,9 +15,14 @@ class Type(Enum):
     TABLE = "TABLE"
     FILE = "FILE"
     USING = "USING"
-    INDEX = "INDEX"
     PRIMARY = "PRIMARY"
     KEY = "KEY"
+
+    # Tipos de indices
+    INDEX = "INDEX"
+    BTREE = "BTREE"
+    RTREE = "RTREE"
+    SEQ = "SEQUENTIAL"
 
     # Tipos de datos
     INT = "INT"
@@ -64,6 +70,7 @@ class Type(Enum):
     EOF = "EOF"
     ERR = "ERR"
 
+
 class Token:
     def __init__(self, t_type: Type, s_token: str = None):
         self.type = t_type
@@ -71,5 +78,3 @@ class Token:
 
     def __repr__(self):
         return f"TOKEN({self.type.name}, '{self.text}')"
-
-

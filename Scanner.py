@@ -63,7 +63,10 @@ class Scanner:
                 "AND": Type.AND,
                 "OR": Type.OR,
                 "NOT": Type.NOT,
-                'BOOLEAN': Type.BOOLEAN
+                'BOOLEAN': Type.BOOLEAN,
+                'BTREE': Type.BTREE,
+                "RTREE": Type.RTREE,
+                "SEQ": Type.SEQ
             }
 
             if word in keyword_map:

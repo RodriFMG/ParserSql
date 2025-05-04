@@ -1,5 +1,5 @@
 import csv
-from Objects import IdExp, BoolExp, NumberExp, BinaryExp, StringExp
+from Objects import IdExp, BoolExp, NumberExp, BinaryExp, StringExp, BetweenExp
 from Constantes import BinaryOp
 
 
@@ -86,12 +86,24 @@ class VisitorExecutor:
         print(f"\nFilas eliminadas: {deleted}")
 
     def visit_create(self, stmt):
+
+        # Verificando ya ha sido creada antes.
         if stmt.name in self.db:
             raise ValueError(f"Tabla '{stmt.name}' ya existe")
+
+        # Verificando que no exista más de una primary key
+        numPrimaryKey = 0
+        for atribute in stmt.columns:
+            if atribute[2]:
+                numPrimaryKey += 1
+
+            if numPrimaryKey > 1:
+                raise ValueError("No se puede crear una tabla con más de una llave primaria")
 
         # Que se guarde el nombre de las tablas en minúsculas.
         columnas = {col[0].lower(): None for col in stmt.columns}
 
+        # Aun falta incializarlos con sus tipos correspondientes.
         self.db[stmt.name] = [columnas.copy()]  # inicializacion vacía con encabezados
         print(f"\nTabla '{stmt.name}' creada con columnas: {list(columnas.keys())}")
 
@@ -156,15 +168,17 @@ class VisitorExecutor:
 
                     # Comparaciones
                     case BinaryOp.EQUAL_OP:
-                        result = v1 == v2
+                        result = int(v1 == v2)
                     case BinaryOp.LESS_OP:
-                        result = v1 < v2
+                        result = int(v1 < v2)
                     case BinaryOp.EQLESS_OP:
-                        result = v1 <= v2
+                        result = int(v1 <= v2)
                     case BinaryOp.MAYOR_OP:
-                        result = v1 > v2
+                        result = int(v1 > v2)
                     case BinaryOp.EQMAYOR_OP:
-                        result = v1 >= v2
+                        result = int(v1 >= v2)
+                    case BinaryOp.NOTEQUAL_OP:
+                        result = int(v1 != v2)
 
                     # AND OR NOT
                     case BinaryOp.AND_OP:
@@ -173,5 +187,14 @@ class VisitorExecutor:
                         result = int(v1 or v2)
                     case BinaryOp.NOT_OP:
                         result = int(not v2)
+
+            case BetweenExp():
+                atributo = self.visit(node.atribute, row)
+                v1 = self.visit(node.left, row)
+                v2 = self.visit(node.right, row)
+
+                result = int(v1 <= atributo <= v2)
+
+
 
         return result

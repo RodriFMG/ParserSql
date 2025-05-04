@@ -13,4 +13,6 @@ class BinaryOp(Enum):
     EQUAL_OP = "=",
     AND_OP = "AND",
     OR_OP = "OR",
-    NOT_OP = "NOT"
+    NOT_OP = "NOT",
+    BETWEEN_OP = "BETWEEN",
+    NOTEQUAL_OP = "NOTEQUAL"
