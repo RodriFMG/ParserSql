@@ -373,7 +373,7 @@ class ParserSQL:
         elif self.match(Type.STRING):
             return StringExp(self.previous.text)
         elif self.match(Type.LPAREN):
-            exp = self.ParseCEXP()
+            exp = self.ParseLogicExp()
             if not self.match(Type.RPAREN):
                 raise ValueError("Falto cerrar parentesis")
             return exp

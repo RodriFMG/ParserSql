@@ -9,6 +9,7 @@ class VisitorExecutor:
 
     def visit_select(self, stmt):
         table_name = stmt.table
+
         if table_name not in self.db:
             raise ValueError(f"Tabla '{table_name}' no encontrada")
 
@@ -17,7 +18,7 @@ class VisitorExecutor:
 
         TablaAtributos = rows[0].keys()
         for att in stmt.atributos:
-            if att.lower() not in TablaAtributos:
+            if att != '*' and att.lower() not in TablaAtributos:
                 raise ValueError(f"Atributo: {att} no presente en la tabla {table_name}")
 
         for row in rows:

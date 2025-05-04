@@ -2,6 +2,54 @@ from Scanner import Scanner
 from Parser import ParserSQL
 from Visitor import VisitorExecutor
 
+import psycopg2
+
+
+def ExtractAllTables():
+    conn = psycopg2.connect(
+        dbname='proydb2',
+        user='postgres',
+        password='coloca tu contra sapo',
+        host='localhost',
+        port="5432"
+    )
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE';
+    """)
+
+    tables = [tabla[0] for tabla in cursor.fetchall()]
+
+    database = {}
+
+    for tabla_name in tables:
+        cursor.execute(f"SELECT * FROM {tabla_name}")
+
+        # Cursor description: Consigo el nombre de los atributos
+        AtributeName = [atribute[0] for atribute in cursor.description]
+        rows = cursor.fetchall()
+
+        listrow = []
+        for row in rows:
+            dbrow = {}
+            for idx, data_row in enumerate(row):
+                dbrow.update({AtributeName[idx]: data_row})
+            listrow.append(dbrow)
+
+        database.update({tabla_name.upper(): listrow})
+
+    conn.close()
+    cursor.close()
+
+    return database
+
+
+
 def ver_tokens(code):
     scanner = Scanner(code)
     while True:
@@ -10,13 +58,11 @@ def ver_tokens(code):
         if token.type.name == "EOF":
             break
 
+
 if __name__ == "__main__":
 
     with open("news_es.csv", encoding="utf-8") as f:
-        code = ('CREATE TABLE newTable(x INT PRIMARY KEY, y BOOLEAN INDEX RTREE, z ARRAY[INT]);'
-                'CREATE TABLE NOTICIAS FROM FILE "news_es.csv" USING INDEX HASH("url"); '
-                'SELECT categoria FROM NOTICIAS WHERE categoria BETWEEN "A" AND "N";'
-                'INSERT INTO newTable (x, y) VALUES (not 1>=2 and  not 0 <= 2, 0), (2, 3), (3, 4)')
+        code = ('SELECT * FROM usuarios WHERE id BETWEEN 20 AND 30;')
         ver_tokens(code)
 
     scanner = Scanner(code)
@@ -24,7 +70,7 @@ if __name__ == "__main__":
     program = parser.ParseProgram()
 
     # Este diccionario lo tenemos que alimentar previo con toda la data que hay actualmente
-    db = {}
+    db = ExtractAllTables()
     executor = VisitorExecutor(db)
     program.accept(executor)
 
