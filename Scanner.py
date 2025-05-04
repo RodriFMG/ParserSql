@@ -62,7 +62,8 @@ class Scanner:
                 "FALSE": Type.FALSE,
                 "AND": Type.AND,
                 "OR": Type.OR,
-                "NOT": Type.NOT
+                "NOT": Type.NOT,
+                'BOOLEAN': Type.BOOLEAN
             }
 
             if word in keyword_map:
@@ -74,7 +75,16 @@ class Scanner:
         elif c.isdigit():
             while self.current < len(self.code) and self.code[self.current].isdigit():
                 self.current += 1
-            return Token(Type.NUMBER, self.code[self.first:self.current])
+
+            if self.code[self.current] == '.':
+                self.current += 1
+                while self.current < len(self.code) and self.code[self.current].isdigit():
+                    self.current += 1
+
+                return Token(Type.FLOAT, self.code[self.first:self.current])
+
+            else:
+                return Token(Type.NUMBER, self.code[self.first:self.current])
 
         #Strings
         elif c == '"':

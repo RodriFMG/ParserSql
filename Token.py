@@ -24,6 +24,7 @@ class Type(Enum):
     DATE = "DATE"
     ARRAY = "ARRAY"
     FLOAT = "FLOAT"
+    BOOLEAN = "BOOLEAN"
 
     # Literales booleanos
     TRUE = "TRUE"

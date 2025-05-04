@@ -1,4 +1,7 @@
 import csv
+from Objects import IdExp, BoolExp, NumberExp, BinaryExp, StringExp
+from Constantes import BinaryOp
+
 
 class VisitorExecutor:
     def __init__(self, db):
@@ -12,6 +15,11 @@ class VisitorExecutor:
         rows = self.db[table_name]
         selected_rows = []
 
+        TablaAtributos = rows[0].keys()
+        for att in stmt.atributos:
+            if att.lower() not in TablaAtributos:
+                raise ValueError(f"Atributo: {att} no presente en la tabla {table_name}")
+
         for row in rows:
             if stmt.condition:
                 if not self.eval_condition(stmt.condition, row):
@@ -19,7 +27,12 @@ class VisitorExecutor:
             if stmt.atributos == "*":
                 selected_rows.append(row)
             else:
+
+                # Extrae todas las filas de tu tabla.
                 lower_row = {k.lower(): v for k, v in row.items()}
+
+                # De cada atributo presente en tu fila, rescatas los valores de los atributos
+                # deseados
                 selected_rows.append({attr: lower_row.get(attr.lower(), None) for attr in stmt.atributos})
 
         print("\nResultado del SELECT:")
@@ -27,31 +40,58 @@ class VisitorExecutor:
             print(r)
 
     def visit_insert(self, stmt):
-        if stmt.table not in self.db:
-            raise ValueError(f"Tabla '{stmt.table}' no encontrada")
 
-        table_data = self.db[stmt.table]
-        if len(stmt.values) != len(table_data[0]):
-            raise ValueError("Cantidad de valores no coincide con columnas")
+        table_name = stmt.table
 
-        new_row = {k: v for k, v in zip(table_data[0].keys(), stmt.values)}
-        self.db[stmt.table].append(new_row)
-        print("\nInserción realizada con éxito:", new_row)
+        # Validación de la tabla en la bdd
+        if table_name not in self.db:
+            raise ValueError(f"Tabla '{table_name}' no encontrada")
+
+        table_data = self.db[table_name]
+        TablaAtributos = table_data[0].keys()
+
+        # Validación de que cada columna esté en la tabla
+        for att in stmt.atributos:
+            if att.lower() not in TablaAtributos:
+                raise ValueError(f"Atributo: {att} no presente en la tabla {table_name}")
+
+        # Validación de que el número de argumentos sean iguales al número de atributos colocados
+        for RowToInsert in stmt.values:
+            if len(stmt.atributos) != len(RowToInsert):
+                raise ValueError("Se esperaba la misma cantidad de argumentos a insertar.")
+
+        # Insertar todas las filas.
+        for RowToInsert in stmt.values:
+            new_row = {att: None for att in TablaAtributos}
+            for attName, content in zip(stmt.atributos, RowToInsert):
+                new_row[attName.lower()] = self.eval_condition(content, RowToInsert)
+
+            self.db[table_name].append(new_row)
+
+        print(f"\nInserción realizada con éxito, se insertaron {len(stmt.values)} a {table_name}")
 
     def visit_delete(self, stmt):
         if stmt.table not in self.db:
             raise ValueError(f"Tabla '{stmt.table}' no encontrada")
 
         original = len(self.db[stmt.table])
-        self.db[stmt.table] = [r for r in self.db[stmt.table] if not self.eval_condition(stmt.condition, r)]
+
+        # Construimos nuevamente la tabla pero ahora solo con las que no cumplan la condición.
+        self.db[stmt.table] = [row for row in self.db[stmt.table]
+                               if not self.eval_condition(stmt.condition, row)]
+
+        # Número de filas eliminadas.
         deleted = original - len(self.db[stmt.table])
+
         print(f"\nFilas eliminadas: {deleted}")
 
     def visit_create(self, stmt):
         if stmt.name in self.db:
             raise ValueError(f"Tabla '{stmt.name}' ya existe")
 
-        columnas = {col[0]: None for col in stmt.columns}
+        # Que se guarde el nombre de las tablas en minúsculas.
+        columnas = {col[0].lower(): None for col in stmt.columns}
+
         self.db[stmt.name] = [columnas.copy()]  # inicializacion vacía con encabezados
         print(f"\nTabla '{stmt.name}' creada con columnas: {list(columnas.keys())}")
 
@@ -65,47 +105,73 @@ class VisitorExecutor:
 
         print(f"\nTabla '{stmt.name}' creada desde archivo con {len(self.db[stmt.name])} filas")
 
-    def eval_condition(self, exp, row):
+    # Para que el row? xd
+
+    # No soporta operaciones binarias
+    def eval_condition(self, exp, row=None):
+
+        # Si por alguna razón entra, se considera.
         if exp is None:
             return True
 
-        if hasattr(exp, 'op'):
-            if exp.op == 'AND':
-                return self.eval_condition(exp.left, row) and self.eval_condition(exp.right, row)
-            elif exp.op == 'OR':
-                return self.eval_condition(exp.left, row) or self.eval_condition(exp.right, row)
-            elif exp.op == 'NOT':
-                return not self.eval_condition(exp.right, row)
-            else:
-                left = self.eval_condition(exp.left, row)
-                right = self.eval_condition(exp.right, row)
-                op = exp.op.value[0]
-                if op == '=':
-                    if left is None or right is None:
-                        return False
-                    return str(left).strip().lower() == str(right).strip().lower()
-                elif op == '<':
-                    return float(left) < float(right)
-                elif op == '>':
-                    return float(left) > float(right)
-                elif op == '<=':
-                    return float(left) <= float(right)
-                elif op == '>=':
-                    return float(left) >= float(right)
-                elif op == '<>':
-                    return str(left) != str(right)
+        return self.visit(exp, row)
 
-        # Identificadores (nombre de columnas)
-        if hasattr(exp, 'name'):
-            return row.get(exp.name.lower())
+    def visit(self, node, row=None):
 
-        # Literales (numeros, strings)
-        if hasattr(exp, 'value'):
-            return exp.value
+        result = 0
 
-        # Booleanos
-        if hasattr(exp, 'boolean'):
-            return exp.boolean
+        match node:
+            case IdExp():
 
-        raise ValueError("Expresión no soportada")
+                if row:
+                    result = row.get(node.name.lower())
+                else:
+                    result = node.name.lower()
 
+            case NumberExp():
+                result = node.value
+            case BoolExp():
+                result = node.boolean
+            case StringExp():
+                result = node.value
+            case BinaryExp():
+
+                v1 = self.visit(node.left, row)
+                v2 = self.visit(node.right, row)
+                op = node.op
+
+                match op:
+
+                    # Operaciones matemáticas
+                    case BinaryOp.PLUS_OP:
+                        result = v1 + v2
+                    case BinaryOp.MINUS_OP:
+                        result = v1 - v2
+                    case BinaryOp.MUL_OP:
+                        result = v1 * v2
+                    case BinaryOp.DIV_OP:
+                        if v2 == 0:
+                            raise ValueError("No se puede dividir entre 0")
+                        result = v1 / v2
+
+                    # Comparaciones
+                    case BinaryOp.EQUAL_OP:
+                        result = v1 == v2
+                    case BinaryOp.LESS_OP:
+                        result = v1 < v2
+                    case BinaryOp.EQLESS_OP:
+                        result = v1 <= v2
+                    case BinaryOp.MAYOR_OP:
+                        result = v1 > v2
+                    case BinaryOp.EQMAYOR_OP:
+                        result = v1 >= v2
+
+                    # AND OR NOT
+                    case BinaryOp.AND_OP:
+                        result = int(v1 and v2)
+                    case BinaryOp.OR_OP:
+                        result = int(v1 or v2)
+                    case BinaryOp.NOT_OP:
+                        result = int(not v2)
+
+        return result

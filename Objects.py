@@ -1,20 +1,23 @@
 from abc import ABC, abstractmethod
 from Constantes import BinaryOp  # Se asume que defines tus operadores ahí
 
-#EXPRESIONES
+
+# EXPRESIONES
 
 class Exp(ABC):
     @abstractmethod
     def accept(self, visitor):
         pass
 
+
 class NumberExp(Exp):
     def __init__(self, value):
         super().__init__()
-        self.value = int(value)
+        self.value = value
 
     def accept(self, visitor):
-        return visitor.visit_number_exp(self)
+        return visitor.visit(self)
+
 
 class IdExp(Exp):
     def __init__(self, name):
@@ -22,7 +25,8 @@ class IdExp(Exp):
         self.name = name
 
     def accept(self, visitor):
-        return visitor.visit_identifier_exp(self)
+        return visitor.visit(self)
+
 
 class BinaryExp(Exp):
     def __init__(self, left, op, right):
@@ -32,7 +36,8 @@ class BinaryExp(Exp):
         self.right = right
 
     def accept(self, visitor):
-        return visitor.visit_binary_exp(self)
+        return visitor.visit(self)
+
 
 class BoolExp(Exp):
     def __init__(self, boolean: bool):
@@ -40,7 +45,8 @@ class BoolExp(Exp):
         self.boolean = boolean
 
     def accept(self, visitor):
-        return visitor.visit_bool_exp(self)
+        return visitor.visit(self)
+
 
 class LogicalExp(Exp):
     def __init__(self, left, op, right):
@@ -52,6 +58,7 @@ class LogicalExp(Exp):
     def accept(self, visitor):
         return visitor.visit_logical_exp(self)
 
+
 class NotExp(Exp):
     def __init__(self, exp):
         super().__init__()
@@ -59,6 +66,7 @@ class NotExp(Exp):
 
     def accept(self, visitor):
         return visitor.visit_not_exp(self)
+
 
 class StringExp(Exp):
     def __init__(self, value):
@@ -68,20 +76,23 @@ class StringExp(Exp):
     def accept(self, visitor):
         return visitor.visit_string_exp(self)
 
-#ESTRUCTURA DE ATRIBUTOS
+
+# ESTRUCTURA DE ATRIBUTOS
 
 class Atributo:
     def __init__(self, nombre, tipo, indice=None):
         self.nombre = nombre
         self.tipo = tipo
-        self.indice = indice  #'SEQ', 'BTree', 'RTree', etc.
+        self.indice = indice  # 'SEQ', 'BTree', 'RTree', etc.
 
-#SENTENCIAS
+
+# SENTENCIAS
 
 class Stms(ABC):
     @abstractmethod
     def accept(self, visitor):
         pass
+
 
 class SelectStatement(Stms):
     def __init__(self, atributos, table, condition=None):
@@ -93,14 +104,17 @@ class SelectStatement(Stms):
     def accept(self, visitor):
         return visitor.visit_select(self)
 
+
 class InsertStatement(Stms):
-    def __init__(self, table, values):
+    def __init__(self, table, values, atributos):
         super().__init__()
         self.table = table
         self.values = values
+        self.atributos = atributos
 
     def accept(self, visitor):
         return visitor.visit_insert(self)
+
 
 class DeleteStatement(Stms):
     def __init__(self, table, condition):
@@ -111,6 +125,7 @@ class DeleteStatement(Stms):
     def accept(self, visitor):
         return visitor.visit_delete(self)
 
+
 class CreateTable(Stms):
     def __init__(self, name, columns):
         super().__init__()
@@ -119,6 +134,7 @@ class CreateTable(Stms):
 
     def accept(self, visitor):
         return visitor.visit_create(self)
+
 
 class CreateTableFromFile(Stms):
     def __init__(self, name, file_path, index_type, index_field):
@@ -131,7 +147,8 @@ class CreateTableFromFile(Stms):
     def accept(self, visitor):
         return visitor.visit_create_from_file(self)
 
-#PROGRAMA PRINCIPAL
+
+# PROGRAMA PRINCIPAL
 
 class Program:
     def __init__(self, list_stms):
@@ -140,8 +157,3 @@ class Program:
     def accept(self, visitor):
         for stmt in self.list_stms:
             stmt.accept(visitor)
-
-
-
-
-

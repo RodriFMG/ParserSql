@@ -1,7 +1,9 @@
 from Token import Token, Type
 from Scanner import Scanner
-from Objects import Stms, Program, SelectStatement, NumberExp, IdExp, BoolExp, BinaryExp, StringExp, InsertStatement, DeleteStatement, CreateTable, CreateTableFromFile
+from Objects import Stms, Program, SelectStatement, NumberExp, IdExp, BoolExp, BinaryExp, StringExp, InsertStatement, \
+    DeleteStatement, CreateTable, CreateTableFromFile
 from Constantes import BinaryOp
+
 
 class ParserSQL:
 
@@ -94,27 +96,56 @@ class ParserSQL:
 
             table = self.previous.text
 
+            if not self.match(Type.LPAREN):
+                raise ValueError("Se esperaba '(' después de 'ID'")
+
+            atributos = []
+            if self.match(Type.ID):
+                atributos.append(self.previous.text)
+
+                while True:
+                    if not self.match(Type.COMA):
+                        break
+
+                    if not self.match(Type.ID):
+                        raise ValueError("Se esperaba un ID del atributo despues de la ','")
+
+                    atributos.append(self.previous.text)
+
+            if not self.match(Type.RPAREN):
+                raise ValueError("Se esperaba un ')' despues de los atribtuos")
+
             if not self.match(Type.VALUES):
                 raise ValueError("Se esperaba 'VALUES' después del nombre de la tabla")
 
-            if not self.match(Type.LPAREN):
-                raise ValueError("Se esperaba '(' después de 'VALUES'")
+
 
             values = []
             while True:
-                if self.match(Type.STRING) or self.match(Type.NUMBER) or self.match(Type.TRUE) or self.match(Type.FALSE):
-                    values.append(self.previous.text)
 
-                else:
-                    raise ValueError("Se esperaba un valor literal en VALUES")
+                if not self.match(Type.LPAREN):
+                    raise ValueError("Se esperaba un '(' en el insert")
+
+                RowToInsert = []
+
+                while True:
+
+                    Exp = self.ParseLogicExp()
+                    RowToInsert.append(Exp)
+
+                    if not self.match(Type.COMA):
+                        break
+
+                if not self.match(Type.RPAREN):
+                    raise ValueError("Se esperaba un ')' en el insert")
+
+                values.append(RowToInsert)
 
                 if not self.match(Type.COMA):
                     break
 
-            if not self.match(Type.RPAREN):
-                raise ValueError("Se esperaba ')' después de los valores")
 
-            return InsertStatement(table, values)
+            return InsertStatement(table, values, atributos)
 
 
         elif self.match(Type.DELETE):
@@ -163,29 +194,30 @@ class ParserSQL:
                     raise ValueError("Se esperaba ')' para cerrar índice")
                 return CreateTableFromFile(name, filepath, index_type, index_field)
 
-            if not self.match(Type.LPAREN):
-                raise ValueError("Se esperaba '(' para definir columnas")
+            else:
+                if not self.match(Type.LPAREN):
+                    raise ValueError("Se esperaba '(' para definir columnas")
 
-            columns = []
-            while True:
-                if not self.match(Type.ID):
-                    raise ValueError("Se esperaba nombre de columna")
-                col_name = self.previous.text
+                columns = []
+                while True:
+                    if not self.match(Type.ID):
+                        raise ValueError("Se esperaba nombre de columna")
+                    col_name = self.previous.text
 
-                if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
-                        Type.DATE) and not self.match(Type.FLOAT):
-                    raise ValueError("Se esperaba tipo de dato")
-                col_type = self.previous.type
+                    if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
+                            Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN):
+                        raise ValueError("Se esperaba tipo de dato")
+                    col_type = self.previous.type
 
-                columns.append((col_name, col_type))
+                    columns.append((col_name, col_type))
 
-                if not self.match(Type.COMA):
-                    break
+                    if not self.match(Type.COMA):
+                        break
 
-            if not self.match(Type.RPAREN):
-                raise ValueError("Se esperaba ')' para cerrar definición de columnas")
+                if not self.match(Type.RPAREN):
+                    raise ValueError("Se esperaba ')' para cerrar definición de columnas")
 
-            return CreateTable(name, columns)
+                return CreateTable(name, columns)
 
         else:
             raise ValueError(f"Sentencia no reconocida: {self.current.text}")
@@ -194,7 +226,13 @@ class ParserSQL:
         left = self.ParseCEXP()
 
         while self.match(Type.AND) or self.match(Type.OR):
-            op = self.previous.type
+            op: BinaryOp
+
+            if self.previous.type == Type.AND:
+                op = BinaryOp.AND_OP
+            else:
+                op = BinaryOp.OR_OP
+
             right = self.ParseCEXP()
             left = BinaryExp(left, op, right)  # Tratamos AND/OR como BinaryExp con tipo logico
 
@@ -202,12 +240,16 @@ class ParserSQL:
 
     def ParseCEXP(self):
         if self.match(Type.NOT):
+
+            op = BinaryOp.NOT_OP
+
             expr = self.ParseCEXP()
-            return BinaryExp(None, Type.NOT, expr)
+            return BinaryExp(None, op, expr)
 
         left = self.ParseExp()
 
-        if self.match(Type.LESS) or self.match(Type.EQLESS) or self.match(Type.MAYOR) or self.match(Type.EQMAYOR) or self.match(Type.EQ) or self.match(Type.NEQ):
+        if self.match(Type.LESS) or self.match(Type.EQLESS) or self.match(Type.MAYOR) or self.match(
+                Type.EQMAYOR) or self.match(Type.EQ) or self.match(Type.NEQ):
             op: BinaryOp
 
             if self.previous.type == Type.EQ:
@@ -244,7 +286,6 @@ class ParserSQL:
 
         return left
 
-
     def ParseTerm(self):
         left = self.ParseFactor()
 
@@ -261,10 +302,11 @@ class ParserSQL:
 
         return left
 
-
     def ParseFactor(self):
         if self.match(Type.NUMBER):
             return NumberExp(int(self.previous.text))
+        elif self.match(Type.FLOAT):
+            return NumberExp(float(self.previous.text))
         elif self.match(Type.ID):
             return IdExp(self.previous.text)
         elif self.match(Type.TRUE):

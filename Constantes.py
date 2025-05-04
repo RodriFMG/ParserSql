@@ -10,4 +10,7 @@ class BinaryOp(Enum):
     EQLESS_OP = "<=",
     MAYOR_OP = ">",
     EQMAYOR_OP = ">=",
-    EQUAL_OP = "="
+    EQUAL_OP = "=",
+    AND_OP = "AND",
+    OR_OP = "OR",
+    NOT_OP = "NOT"
