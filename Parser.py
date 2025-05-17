@@ -144,7 +144,6 @@ class ParserSQL:
                 if not self.match(Type.COMA):
                     break
 
-
             return InsertStatement(table, values, atributos)
 
 
@@ -205,7 +204,8 @@ class ParserSQL:
                     col_name = self.previous.text
 
                     if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
-                            Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN):
+                            Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN)\
+                            and not self.match(Type.SERIAL):
 
                         # Rescato el tipo de dato ARRAY -> ARRAY[TypeData]
                         if self.match(Type.ARRAY):
@@ -223,7 +223,7 @@ class ParserSQL:
                             col_type = [col_type, self.previous.type]
 
                             if not self.match(Type.RBRACKET):
-                                col_type += "]"
+                                raise ValueError("Se esperaba cerrar el type ARRAY")
 
                         else:
                             raise ValueError("Se esperaba tipo de dato")

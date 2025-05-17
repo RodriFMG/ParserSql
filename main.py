@@ -5,16 +5,9 @@ from Visitor import VisitorExecutor
 import psycopg2
 
 
-def ExtractAllTables():
-    conn = psycopg2.connect(
-        dbname='proydb2',
-        user='postgres',
-        password='coloca tu contra sapo',
-        host='localhost',
-        port="5432"
-    )
+def ExtractAllTables(conection):
 
-    cursor = conn.cursor()
+    cursor = conection.cursor()
 
     cursor.execute("""
         SELECT table_name
@@ -43,9 +36,7 @@ def ExtractAllTables():
 
         database.update({tabla_name.upper(): listrow})
 
-    conn.close()
     cursor.close()
-
     return database
 
 
@@ -61,16 +52,31 @@ def ver_tokens(code):
 
 if __name__ == "__main__":
 
+    with open('./code.txt', 'r', encoding='utf-8') as f:
+        code = f.read()
+
     with open("news_es.csv", encoding="utf-8") as f:
-        code = ('SELECT * FROM usuarios WHERE id BETWEEN 20 AND 30;')
         ver_tokens(code)
 
     scanner = Scanner(code)
     parser = ParserSQL(scanner)
     program = parser.ParseProgram()
 
-    # Este diccionario lo tenemos que alimentar previo con toda la data que hay actualmente
-    db = ExtractAllTables()
-    executor = VisitorExecutor(db)
+    # Conexión a la base de datos
+    conn = psycopg2.connect(
+        dbname='proydb2',
+        user='postgres',
+        password='2019wess:v',
+        host='localhost',
+        port="5432"
+    )
+
+    # Extraer TODAS las tablas de la base de datos
+    db = ExtractAllTables(conn)
+
+    # Ejecutar código
+    executor = VisitorExecutor(db, conn)
     program.accept(executor)
+
+    conn.close()
 

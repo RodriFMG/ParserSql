@@ -42,6 +42,7 @@ class Scanner:
                 "FROM": Type.FROM,
                 "WHERE": Type.WHERE,
                 "BETWEEN": Type.BETWEEN,
+                "SERIAL": Type.SERIAL,
                 "INSERT": Type.INSERT,
                 "INTO": Type.INTO,
                 "VALUES": Type.VALUES,

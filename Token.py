@@ -26,6 +26,7 @@ class Type(Enum):
 
     # Tipos de datos
     INT = "INT"
+    SERIAL = "SERIAL"
     TEXT = "TEXT"
     DATE = "DATE"
     ARRAY = "ARRAY"
