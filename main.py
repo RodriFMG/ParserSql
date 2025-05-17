@@ -66,7 +66,7 @@ if __name__ == "__main__":
     conn = psycopg2.connect(
         dbname='proydb2',
         user='postgres',
-        password='2019wess:v',
+        password='xd',
         host='localhost',
         port="5432"
     )
