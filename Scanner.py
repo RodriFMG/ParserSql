@@ -65,6 +65,7 @@ class Scanner:
                 "OR": Type.OR,
                 "NOT": Type.NOT,
                 'BOOLEAN': Type.BOOLEAN,
+                'HASH': Type.HASH,
                 'BTREE': Type.BTREE,
                 "RTREE": Type.RTREE,
                 "SEQ": Type.SEQ

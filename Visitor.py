@@ -77,9 +77,9 @@ class VisitorExecutor:
         # Funciona si el primary key es SIMILAR y numérico ( corregir luego ).
         last_id = self.db[table_name][-1]['id']
 
-
         # Insertar todas las filas.
         for RowToInsert in stmt.values:
+
 
             # Ejecutar en SQL para guardarlo en la BDD
             RowInsert = [self.eval_condition(exp, RowToInsert) for exp in RowToInsert]
@@ -95,7 +95,6 @@ class VisitorExecutor:
                     new_row['id'] = last_id
                 new_row[attName.lower()] = content
 
-            print(new_row)
             self.db[table_name].append(new_row)
 
         # Guardar los cambios realizados
@@ -105,19 +104,53 @@ class VisitorExecutor:
         print(f"\nInserción realizada con éxito, se insertaron {len(stmt.values)} a {table_name}")
 
     def visit_delete(self, stmt):
+
+        cursor = self.conection.cursor()
         if stmt.table not in self.db:
             raise ValueError(f"Tabla '{stmt.table}' no encontrada")
 
-        original = len(self.db[stmt.table])
+        print("\nREPORTE DEL DELETE:")
 
-        # Construimos nuevamente la tabla pero ahora solo con las que no cumplan la condición.
-        self.db[stmt.table] = [row for row in self.db[stmt.table]
-                               if not self.eval_condition(stmt.condition, row)]
+        # Array que controle las filas a borrar.
+        row_to_remove = []
 
-        # Número de filas eliminadas.
-        deleted = original - len(self.db[stmt.table])
+        if stmt.condition is None:
+            row_to_remove = [row for row in self.db[stmt.table]]
+        else:
+            for row in self.db[stmt.table]:
+                if self.eval_condition(stmt.condition, row):
+                    row_to_remove.append(row)
 
-        print(f"\nFilas eliminadas: {deleted}")
+        if row_to_remove:
+
+            # FALTA CAMBIAR: Cambiar luego a cual sería el nombre de la primary key (cabecera del binario)
+            query = sql.SQL("DELETE FROM {table} WHERE id IN ({ids})").format(
+                table=sql.Identifier(stmt.table.lower()),
+                ids=sql.SQL(', ').join(sql.Placeholder() * len(row_to_remove))
+            )
+
+            # Ejecutando la query
+
+            row_id_remove = [row['id'] for row in row_to_remove]
+            cursor.execute(query, row_id_remove)
+
+            # Guardando los cambios
+            self.conection.commit()
+            cursor.close()
+
+
+            # Borrando en el diccionario
+            self.db[stmt.table] = [row for row in self.db[stmt.table]
+                                   if row['id'] not in row_to_remove]
+
+
+            print(f"\nFilas eliminadas:")
+
+            for atribute in row_to_remove:
+                print(atribute)
+
+        else:
+            print("No se encontraron filas para eliminar. Consulta no ejecutada.")
 
     def visit_create(self, stmt):
 
@@ -152,8 +185,38 @@ class VisitorExecutor:
             atributes=sql.SQL(', ').join(sql.SQL(col) for col in columns)
         )
 
-        # Ejecutamos la consulta
+        # Creamos la Tabla
         cursor.execute(query)
+
+        # Consiguiendo los atributos con el mismo índice
+        att_index = {}
+
+        for att_content in stmt.columns:
+            if att_content[3] is not None:
+
+                if att_content[3] not in att_index:
+                    att_index[att_content[3]] = []
+
+                att_index[att_content[3]].append(att_content[0])
+
+        print(att_index)
+
+        # Añadiendo los indices
+
+        for index in att_index:
+            for attr in att_index[index]:
+
+                index_name = f"{stmt.name.lower()}_{index.lower()}_{attr.lower()}_idx"
+
+                query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
+                    name=sql.Identifier(index_name),
+                    table=sql.Identifier(stmt.name.lower()),
+                    idx=sql.SQL(index.lower()),
+                    attribute=sql.Identifier(attr.lower())
+                )
+
+                # Creando cada indice
+                cursor.execute(query)
 
         # Que se guarde el nombre de las tablas en minúsculas.
         columnas = {col[0].lower(): None for col in stmt.columns}

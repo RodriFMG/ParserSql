@@ -9,6 +9,8 @@ def ExtractAllTables(conection):
 
     cursor = conection.cursor()
 
+
+
     cursor.execute("""
         SELECT table_name
         FROM information_schema.tables
@@ -41,6 +43,7 @@ def ExtractAllTables(conection):
 
 
 
+
 def ver_tokens(code):
     scanner = Scanner(code)
     while True:
@@ -66,7 +69,7 @@ if __name__ == "__main__":
     conn = psycopg2.connect(
         dbname='proydb2',
         user='postgres',
-        password='xd',
+        password='2019wess:v',
         host='localhost',
         port="5432"
     )

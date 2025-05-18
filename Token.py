@@ -23,6 +23,7 @@ class Type(Enum):
     BTREE = "BTREE"
     RTREE = "RTREE"
     SEQ = "SEQUENTIAL"
+    HASH = "HASH"
 
     # Tipos de datos
     INT = "INT"

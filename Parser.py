@@ -199,6 +199,7 @@ class ParserSQL:
 
                 columns = []
                 while True:
+
                     if not self.match(Type.ID):
                         raise ValueError("Se esperaba nombre de columna")
                     col_name = self.previous.text
@@ -242,7 +243,8 @@ class ParserSQL:
                     Index = None
 
                     if self.match(Type.INDEX):
-                        if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE):
+                        if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE)\
+                                and not self.match(Type.HASH):
                             raise ValueError(f"No existe el indice: {self.current.text}")
 
                         Index = self.previous.text
