@@ -1,0 +1,15 @@
+{
+    "productos": {
+        "hash": "9c3ca599b2366a430567c675dcab6344",
+        "columns": [
+            "id",
+            "nombre",
+            "fechalanzamiento",
+            "disponible",
+            "cantidad",
+            "descuento",
+            "codigo"
+        ],
+        "last_modified": "2025-05-18T12:07:01.598808"
+    }
+}

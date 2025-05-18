@@ -1,9 +1,3 @@
-CREATE TABLE productos (
-    id SERIAL PRIMARY KEY,
-    nombre TEXT INDEX BTREE,
-    fechalanzamiento DATE INDEX HASH,
-    disponible BOOLEAN INDEX HASH,
-    cantidad INT INDEX BTREE,
-    descuento FLOAT INDEX HASH,
-    codigo TEXT INDEX HASH
-);
+SELECT * FROM productos;
+
+

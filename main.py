@@ -1,15 +1,14 @@
 from Scanner import Scanner
 from Parser import ParserSQL
 from Visitor import VisitorExecutor
-
+from bin_data.BinaryManager import BinStorageManager
 import psycopg2
 
-
+#AGREGADO
+bin_manager = BinStorageManager()
 def ExtractAllTables(conection):
 
     cursor = conection.cursor()
-
-
 
     cursor.execute("""
         SELECT table_name
@@ -43,7 +42,6 @@ def ExtractAllTables(conection):
 
 
 
-
 def ver_tokens(code):
     scanner = Scanner(code)
     while True:
@@ -67,19 +65,38 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='proydb2',
+        dbname='postgres',
         user='postgres',
-        password='2019wess:v',
+        password='123',
         host='localhost',
-        port="5432"
+        port="5433"
     )
 
     # Extraer TODAS las tablas de la base de datos
     db = ExtractAllTables(conn)
 
+#AGREGADO, VERIFICA LAS MODIFICACIONES
+    for table in db:
+        if bin_manager.is_synced(table, db[table]):
+            print(f"[BIN] Tabla '{table}' sincronizada. Cargando desde archivo binario.")
+            db[table] = bin_manager.load_table(table)
+        else:
+            print(f"[BIN] Tabla '{table}' desactualizada. Guardando nueva versión.")
+            bin_manager.save_table(table, db[table])
+
     # Ejecutar código
     executor = VisitorExecutor(db, conn)
     program.accept(executor)
+
+    # Visualizar archivo .bin de una tabla específica después de ejecutar las instrucciones
+    tabla = "productos"  # 🔁 cambia por el nombre de tu tabla
+    print(f"\nContenido actual de {tabla}.bin (desde archivo binario):")
+    try:
+        contenido_bin = bin_manager.load_table(tabla)
+        for fila in contenido_bin:
+            print(fila)
+    except Exception as e:
+        print(f" Error al leer el archivo binario de '{tabla}':", e)
 
     conn.close()
 

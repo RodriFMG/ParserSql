@@ -3,12 +3,15 @@ from Objects import IdExp, BoolExp, NumberExp, BinaryExp, StringExp, BetweenExp
 from Constantes import BinaryOp
 from psycopg2 import sql
 from Token import Type
-
+from bin_data.BinaryManager import BinStorageManager
 
 class VisitorExecutor:
     def __init__(self, db, conn):
         self.db = db
         self.conection = conn
+
+        #Agregado
+        self.bin_manager = BinStorageManager()
 
     def visit_select(self, stmt):
         table_name = stmt.table
@@ -55,7 +58,20 @@ class VisitorExecutor:
             raise ValueError(f"Tabla '{table_name}' no encontrada")
 
         table_data = self.db[table_name]
-        TablaAtributos = table_data[0].keys()
+
+        #ANTES: TablaAtributos = table_data[0].keys()
+        #ACTUAL:
+        # Obtener los nombres de atributos (columnas) de la tabla
+        if table_data:
+            # Si la tabla ya tiene filas, tomamos los atributos desde la primera fila
+            TablaAtributos = table_data[0].keys()
+        else:
+            # Si no hay filas aún, recuperamos los atributos desde meta.json
+            meta_info = self.bin_manager.meta.get(table_name.lower())
+            if meta_info and "columns" in meta_info:
+                TablaAtributos = meta_info["columns"]
+            else:
+                raise ValueError(f"No se pudo determinar los atributos de la tabla '{table_name}'")
 
         # Validación de que cada columna esté en la tabla
         for att in stmt.atributos:
@@ -75,7 +91,14 @@ class VisitorExecutor:
         )
 
         # Funciona si el primary key es SIMILAR y numérico ( corregir luego ).
-        last_id = self.db[table_name][-1]['id']
+
+        #ANTES:last_id = self.db[table_name][-1]['id']
+
+        #ACTUAL:
+        if self.db[table_name]:
+            last_id = int(self.db[table_name][-1].get('id', 0))
+        else:
+            last_id = 0
 
         # Insertar todas las filas.
         for RowToInsert in stmt.values:
@@ -102,6 +125,8 @@ class VisitorExecutor:
         cursor.close()
 
         print(f"\nInserción realizada con éxito, se insertaron {len(stmt.values)} a {table_name}")
+        # AGREGADO
+        self.bin_manager.save_table(table_name, self.db[table_name])
 
     def visit_delete(self, stmt):
 
@@ -143,6 +168,8 @@ class VisitorExecutor:
             self.db[stmt.table] = [row for row in self.db[stmt.table]
                                    if row['id'] not in row_to_remove]
 
+            #AGREGADO
+            self.bin_manager.save_table(stmt.table, self.db[stmt.table])
 
             print(f"\nFilas eliminadas:")
 
@@ -222,7 +249,13 @@ class VisitorExecutor:
         columnas = {col[0].lower(): None for col in stmt.columns}
 
         # inicializacion vacía con encabezados
-        self.db[stmt.name] = [columnas.copy()]
+
+        #ANTES: self.db[stmt.name] = [columnas.copy()]
+        #ACTUAL:
+        self.db[stmt.name] = []
+
+        #AGREGADO
+        self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=list(columnas.keys()))
 
         # Guardamos los cambios
         self.conection.commit()
