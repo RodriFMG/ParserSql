@@ -11,5 +11,15 @@
             "codigo"
         ],
         "last_modified": "2025-05-18T12:07:01.598808"
+    },
+    "quefue": {
+        "hash": "d751713988987e9331980363e24189ce",
+        "columns": [
+            "newatt1",
+            "newatt2",
+            "newatt3",
+            "newatt4"
+        ],
+        "last_modified": "2025-05-24T16:09:16.730368"
     }
 }

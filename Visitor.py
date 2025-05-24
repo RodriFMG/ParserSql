@@ -6,7 +6,7 @@ from Token import Type
 from bin_data.BinaryManager import BinStorageManager
 
 class VisitorExecutor:
-    def __init__(self, db, conn):
+    def __init__(self, db, conn, ):
         self.db = db
         self.conection = conn
 
@@ -59,9 +59,6 @@ class VisitorExecutor:
 
         table_data = self.db[table_name]
 
-        #ANTES: TablaAtributos = table_data[0].keys()
-        #ACTUAL:
-        # Obtener los nombres de atributos (columnas) de la tabla
         if table_data:
             # Si la tabla ya tiene filas, tomamos los atributos desde la primera fila
             TablaAtributos = table_data[0].keys()
@@ -91,14 +88,7 @@ class VisitorExecutor:
         )
 
         # Funciona si el primary key es SIMILAR y numérico ( corregir luego ).
-
-        #ANTES:last_id = self.db[table_name][-1]['id']
-
-        #ACTUAL:
-        if self.db[table_name]:
-            last_id = int(self.db[table_name][-1].get('id', 0))
-        else:
-            last_id = 0
+        last_id = self.db[table_name][-1]['id']
 
         # Insertar todas las filas.
         for RowToInsert in stmt.values:
@@ -125,8 +115,6 @@ class VisitorExecutor:
         cursor.close()
 
         print(f"\nInserción realizada con éxito, se insertaron {len(stmt.values)} a {table_name}")
-        # AGREGADO
-        self.bin_manager.save_table(table_name, self.db[table_name])
 
     def visit_delete(self, stmt):
 
@@ -168,8 +156,6 @@ class VisitorExecutor:
             self.db[stmt.table] = [row for row in self.db[stmt.table]
                                    if row['id'] not in row_to_remove]
 
-            #AGREGADO
-            self.bin_manager.save_table(stmt.table, self.db[stmt.table])
 
             print(f"\nFilas eliminadas:")
 
@@ -250,11 +236,11 @@ class VisitorExecutor:
 
         # inicializacion vacía con encabezados
 
-        #ANTES: self.db[stmt.name] = [columnas.copy()]
-        #ACTUAL:
+        # ANTES: self.db[stmt.name] = [columnas.copy()]
+        # ACTUAL:
         self.db[stmt.name] = []
 
-        #AGREGADO
+        # AGREGADO
         self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=list(columnas.keys()))
 
         # Guardamos los cambios

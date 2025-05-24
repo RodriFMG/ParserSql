@@ -1,3 +1,6 @@
-SELECT * FROM productos;
-
-
+CREATE TABLE quefue(
+    newatt1 TEXT INDEX BTREE,
+    newatt2 FLOAT INDEX HASH,
+    newatt3 SERIAL PRIMARY KEY INDEX BTREE,
+    newatt4 TEXT INDEX HASH
+);
