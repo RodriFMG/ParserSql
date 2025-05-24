@@ -4,9 +4,11 @@ from Constantes import BinaryOp
 from psycopg2 import sql
 from Token import Type
 from bin_data.BinaryManager import BinStorageManager
+from MainIndex import MainIndex
+
 
 class VisitorExecutor:
-    def __init__(self, db, conn, ):
+    def __init__(self, db, conn):
         self.db = db
         self.conection = conn
 
@@ -88,7 +90,13 @@ class VisitorExecutor:
         )
 
         # Funciona si el primary key es SIMILAR y numérico ( corregir luego ).
-        last_id = self.db[table_name][-1]['id']
+        #last_id = self.db[table_name][-1]['id']
+
+        #ACTUAL:
+        if self.db[table_name]:
+            last_id = int(self.db[table_name][-1].get('id', 0))
+        else:
+            last_id = 0
 
         # Insertar todas las filas.
         for RowToInsert in stmt.values:
@@ -156,6 +164,8 @@ class VisitorExecutor:
             self.db[stmt.table] = [row for row in self.db[stmt.table]
                                    if row['id'] not in row_to_remove]
 
+            # AGREGADO
+            self.bin_manager.save_table(stmt.table, self.db[stmt.table])
 
             print(f"\nFilas eliminadas:")
 

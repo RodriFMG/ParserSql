@@ -21,5 +21,32 @@
             "newatt4"
         ],
         "last_modified": "2025-05-24T16:09:16.730368"
+    },
+    "usuarios": {
+        "hash": "0a38fbf9b1fdbdf4c9dea48fbd7e3e07",
+        "columns": [
+            "id",
+            "nombre",
+            "edad"
+        ],
+        "last_modified": "2025-05-24T18:32:54.662716"
+    },
+    "tienda": {
+        "hash": "63969ac1063c5d878ed9d885d518792f",
+        "columns": [
+            "id",
+            "papaya",
+            "melon",
+            "manzana",
+            "mandarina"
+        ],
+        "last_modified": "2025-05-24T18:32:54.665228"
+    },
+    "abc": {
+        "hash": "8378427d4eb73e977c528ba515aaefe3",
+        "columns": [
+            "xd"
+        ],
+        "last_modified": "2025-05-24T18:54:26.831222"
     }
 }

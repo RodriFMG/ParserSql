@@ -1,8 +1,8 @@
-from Btree import BtreeIndex
-from Rtree import RtreeIndex
-from Sequential import SequentialIndex
-from AVL import AVLIndex
-from BruteForm import BruteIndex
+from .Btree import BtreeIndex
+from .Rtree import RtreeIndex
+from .Sequential import SequentialIndex
+from .AVL import AVLIndex
+from .BruteForm import BruteIndex
 
 GetIndex = {
     "BTREE":  BtreeIndex,
