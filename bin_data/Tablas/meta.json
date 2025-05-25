@@ -1,0 +1,62 @@
+{
+    "usuarios": {
+        "hash": "0a38fbf9b1fdbdf4c9dea48fbd7e3e07",
+        "columns": [
+            "id",
+            "nombre",
+            "edad"
+        ],
+        "last_modified": "2025-05-24T20:41:19.312361"
+    },
+    "tienda": {
+        "hash": "63969ac1063c5d878ed9d885d518792f",
+        "columns": [
+            "id",
+            "papaya",
+            "melon",
+            "manzana",
+            "mandarina"
+        ],
+        "last_modified": "2025-05-24T20:41:19.313467"
+    },
+    "noticias": {
+        "hash": "263ae3344b29f52493451d101899f1c7",
+        "columns": [
+            "url",
+            "contenido",
+            "categoria"
+        ],
+        "last_modified": "2025-05-24T20:41:19.373539"
+    },
+    "spatial_ref_sys": {
+        "hash": "a3d95caa343df73eb008ce1da006f358",
+        "columns": [
+            "srid",
+            "auth_name",
+            "auth_srid",
+            "srtext",
+            "proj4text"
+        ],
+        "last_modified": "2025-05-24T21:10:20.670194"
+    },
+    "restaurantes": {
+        "hash": "d751713988987e9331980363e24189ce",
+        "columns": [
+            "id",
+            "nombre",
+            "fecharegistro",
+            "ubicacion"
+        ],
+        "last_modified": "2025-05-24T22:08:24.266568"
+    },
+    "restaurantes2": {
+        "hash": "d751713988987e9331980363e24189ce",
+        "columns": [
+            "id",
+            "nombre",
+            "fecharegistro",
+            "ubicacion"
+        ],
+        "last_modified": "2025-05-24T22:24:45.171193"
+    }
+}

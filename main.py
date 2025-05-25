@@ -53,10 +53,10 @@ def ver_tokens(code):
 
 if __name__ == "__main__":
 
-    with open('./code.txt', 'r', encoding='utf-8') as f:
+    with open('Codigos/code.txt', 'r', encoding='utf-8') as f:
         code = f.read()
 
-    with open("news_es.csv", encoding="utf-8") as f:
+    with open("CSV/news_es.csv", encoding="utf-8") as f:
         ver_tokens(code)
 
     scanner = Scanner(code)

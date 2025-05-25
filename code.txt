@@ -1,2 +1,0 @@
-INSERT INTO quefue (newatt1, newatt2, newatt3)
-VALUES (1, 123, 3);

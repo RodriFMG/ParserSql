@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 
 class BinStorageManager:
-    def __init__(self, bin_dir='bin_data'):
+    def __init__(self, bin_dir='bin_data/Tablas/'):
         self.bin_dir = bin_dir
         self.meta_file = os.path.join(bin_dir, "meta.json")
         os.makedirs(bin_dir, exist_ok=True)

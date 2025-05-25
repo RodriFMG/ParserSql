@@ -1,7 +1,7 @@
 from Token import Token, Type
 from Scanner import Scanner
 from Objects import Stms, Program, SelectStatement, NumberExp, IdExp, BoolExp, BinaryExp, StringExp, InsertStatement, \
-    DeleteStatement, CreateTable, CreateTableFromFile, BetweenExp
+    DeleteStatement, CreateTable, CreateTableFromFile, BetweenExp, CreateIndex, DropIndex
 from Constantes import BinaryOp
 
 
@@ -35,6 +35,7 @@ class ParserSQL:
             if self.current.type == Type.ERR:
                 raise ValueError("Error al avanzar.")
             return True
+
         return False
 
     def isAtEnd(self):
@@ -118,8 +119,6 @@ class ParserSQL:
             if not self.match(Type.VALUES):
                 raise ValueError("Se esperaba 'VALUES' después del nombre de la tabla")
 
-
-
             values = []
             while True:
 
@@ -163,102 +162,157 @@ class ParserSQL:
             return DeleteStatement(table, condition)
 
         elif self.match(Type.CREATE):
-            if not self.match(Type.TABLE):
-                raise ValueError("Se esperaba 'TABLE' después de 'CREATE'")
-
-            if not self.match(Type.ID):
-                raise ValueError("Se esperaba el nombre de la tabla")
-            name = self.previous.text
-
-            if self.match(Type.FROM):
-
-                if not self.match(Type.FILE):
-                    raise ValueError("Se esperaba 'FILE' después de 'FROM'")
-                if not self.match(Type.STRING):
-                    raise ValueError("Se esperaba la ruta del archivo entre comillas")
-                filepath = self.previous.text
-                if not self.match(Type.USING):
-                    raise ValueError("Se esperaba 'USING'")
-                if not self.match(Type.INDEX):
-                    raise ValueError("Se esperaba 'INDEX'")
+            if self.match(Type.TABLE):
                 if not self.match(Type.ID):
-                    raise ValueError("Se esperaba tipo de índice (ej. HASH)")
-                index_type = self.previous.text
-                if not self.match(Type.LPAREN):
-                    raise ValueError("Se esperaba '(' después del tipo de índice")
-                if not self.match(Type.STRING):
-                    raise ValueError("Se esperaba el campo índice entre comillas")
-                index_field = self.previous.text
-                if not self.match(Type.RPAREN):
-                    raise ValueError("Se esperaba ')' para cerrar índice")
-                return CreateTableFromFile(name, filepath, index_type, index_field)
+                    raise ValueError("Se esperaba el nombre de la tabla")
+                name = self.previous.text
 
-            else:
-                if not self.match(Type.LPAREN):
-                    raise ValueError("Se esperaba '(' para definir columnas")
+                if self.match(Type.FROM):
 
-                columns = []
-                while True:
+                    if not self.match(Type.FILE):
+                        raise ValueError("Se esperaba 'FILE' después de 'FROM'")
+                    if not self.match(Type.STRING):
+                        raise ValueError("Se esperaba la ruta del archivo entre comillas")
+                    filepath = self.previous.text
+                    if not self.match(Type.USING):
+                        raise ValueError("Se esperaba 'USING'")
+                    if not self.match(Type.INDEX):
+                        raise ValueError("Se esperaba 'INDEX'")
+                    if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE) \
+                            and not self.match(Type.HASH) and not self.match(Type.AVL):
+                        raise ValueError(f"No existe el indice: {self.current.text}")
+                    index_type = self.previous.text
+                    if not self.match(Type.LPAREN):
+                        raise ValueError("Se esperaba '(' después del tipo de índice")
+                    if not self.match(Type.STRING):
+                        raise ValueError("Se esperaba el campo índice entre comillas")
+                    index_field = self.previous.text
+                    if not self.match(Type.RPAREN):
+                        raise ValueError("Se esperaba ')' para cerrar índice")
+                    return CreateTableFromFile(name, filepath, index_type, index_field)
 
-                    if not self.match(Type.ID):
-                        raise ValueError("Se esperaba nombre de columna")
-                    col_name = self.previous.text
+                else:
+                    if not self.match(Type.LPAREN):
+                        raise ValueError("Se esperaba '(' para definir columnas")
 
-                    if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
-                            Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN)\
-                            and not self.match(Type.SERIAL):
+                    columns = []
+                    while True:
 
-                        # Rescato el tipo de dato ARRAY -> ARRAY[TypeData]
-                        if self.match(Type.ARRAY):
+                        if not self.match(Type.ID):
+                            raise ValueError("Se esperaba nombre de columna")
+                        col_name = self.previous.text
 
-                            col_type = [self.previous.type]
+                        if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
+                                Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN) \
+                                and not self.match(Type.SERIAL):
 
-                            if not self.match(Type.LBRACKET):
-                                raise ValueError("Se esperaba una llave en la declaración del ARRAY")
+                            # Rescato el tipo de dato ARRAY -> ARRAY[TypeData]
+                            if self.match(Type.ARRAY):
 
+                                col_type = [self.previous.type]
 
-                            if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
-                            Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN):
-                                raise ValueError("Se esperaba un tipo de dato en la declaración del ARRAY")
+                                if not self.match(Type.LBRACKET):
+                                    raise ValueError("Se esperaba una llave en la declaración del ARRAY")
 
-                            col_type = [col_type, self.previous.type]
+                                if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
+                                        Type.DATE) and not self.match(Type.FLOAT) and not self.match(Type.BOOLEAN):
+                                    raise ValueError("Se esperaba un tipo de dato en la declaración del ARRAY")
 
-                            if not self.match(Type.RBRACKET):
-                                raise ValueError("Se esperaba cerrar el type ARRAY")
+                                col_type = [col_type, self.previous.type]
+
+                                if not self.match(Type.RBRACKET):
+                                    raise ValueError("Se esperaba cerrar el type ARRAY")
+
+                            else:
+                                raise ValueError("Se esperaba tipo de dato")
 
                         else:
-                            raise ValueError("Se esperaba tipo de dato")
+                            # Rescato el tipo de dato simple.
+                            col_type = self.previous.type
 
-                    else:
-                        # Rescato el tipo de dato simple.
-                        col_type = self.previous.type
+                        is_primary_key = False
+                        if self.match(Type.PRIMARY):
+                            if not self.match(Type.KEY):
+                                raise ValueError(f"Se esperaba un PRIMARY KEY, pero se encontró PRIMARY "
+                                                 f"{self.current.text}")
+                            is_primary_key = True
 
-                    is_primary_key = False
-                    if self.match(Type.PRIMARY):
-                        if not self.match(Type.KEY):
-                            raise ValueError(f"Se esperaba un PRIMARY KEY, pero se encontró PRIMARY "
-                                             f"{self.current.text}")
-                        is_primary_key = True
+                        Index = None
 
-                    Index = None
+                        if self.match(Type.INDEX):
+                            if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE) \
+                                    and not self.match(Type.HASH) and not self.match(Type.AVL):
+                                raise ValueError(f"No existe el indice: {self.current.text}")
 
-                    if self.match(Type.INDEX):
-                        if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE)\
-                                and not self.match(Type.HASH):
-                            raise ValueError(f"No existe el indice: {self.current.text}")
+                            Index = self.previous.text
 
-                        Index = self.previous.text
+                        # Atributo Name - Atributo Type - Primary Key - Index Type
+                        columns.append((col_name, col_type, is_primary_key, Index))
 
-                    # Atributo Name - Atributo Type - Primary Key - Index Type
-                    columns.append((col_name, col_type, is_primary_key, Index))
+                        if not self.match(Type.COMA):
+                            break
+
+                    if not self.match(Type.RPAREN):
+                        raise ValueError("Se esperaba ')' para cerrar definición de columnas")
+
+                    return CreateTable(name, columns)
+
+            if self.match(Type.INDEX):
+                if not self.match(Type.ID):
+                    raise ValueError("Se esperaba un ID para el nombre del indice")
+
+                index_name = self.previous.text
+
+                if not self.match(Type.ON):
+                    raise ValueError("Se esperaba un ON en el CREATE INDEX")
+
+                if not self.match(Type.ID):
+                    raise ValueError("Se esperaba algún ID como nombre de la tabla")
+
+                table_name = self.previous.text
+
+                index_type = "BTREE"
+
+                if self.match(Type.USING):
+                    if not self.match(Type.BTREE) and not self.match(Type.AVL) and not self.match(Type.RTREE) and \
+                            not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.HASH):
+                        raise ValueError("Se esperaba un tipo de indice permitido.")
+
+                    index_type = self.previous.text
+
+                if not self.match(Type.LPAREN):
+                    raise ValueError("Se esperaba un (")
+
+                list_attributes = []
+                while True:
+                    if not self.match(Type.ID):
+                        raise ValueError("Se esperaba definir un atributo.")
+
+                    name_atribute = self.previous.text
+                    list_attributes.append(name_atribute)
 
                     if not self.match(Type.COMA):
                         break
 
                 if not self.match(Type.RPAREN):
-                    raise ValueError("Se esperaba ')' para cerrar definición de columnas")
+                    raise ValueError("Se esperaba un )")
 
-                return CreateTable(name, columns)
+                return CreateIndex(table_name, index_name, index_type, list_attributes)
+
+            else:
+                raise ValueError(f"Se esperaba un CREATE INDEX o CREATE TABLE, pero se encontró: CREATE {self.current.text}")
+
+
+        if self.match(Type.DROP):
+            if not self.match(Type.INDEX):
+                raise ValueError("Se esperaba un INDEX para dropear")
+
+            if not self.match(Type.ID):
+                raise ValueError("Se esperaba un ID para dropear")
+
+            index_name = self.previous.text
+
+            return DropIndex(index_name)
 
         else:
             raise ValueError(f"Sentencia no reconocida: {self.current.text}")
@@ -280,7 +334,6 @@ class ParserSQL:
 
         return atributo
 
-
     def ParseLogicExp(self):
         left = self.ParseCEXP()
 
@@ -299,7 +352,6 @@ class ParserSQL:
 
     def ParseCEXP(self):
         if self.match(Type.NOT):
-
             op = BinaryOp.NOT_OP
 
             expr = self.ParseCEXP()

@@ -15,6 +15,15 @@ class VisitorExecutor:
         #Agregado
         self.bin_manager = BinStorageManager()
 
+        # Crear la extensión de gist en la DB en caso no se tenga creada
+        cursor = self.conection.cursor()
+
+        cursor.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+
+        self.conection.commit()
+        cursor.close()
+
+
     def visit_select(self, stmt):
         table_name = stmt.table
 
@@ -29,20 +38,9 @@ class VisitorExecutor:
             if att != '*' and att.lower() not in TablaAtributos:
                 raise ValueError(f"Atributo: {att} no presente en la tabla {table_name}")
 
-        for row in rows:
-            if stmt.condition:
-                if not self.eval_condition(stmt.condition, row):
-                    continue
-            if stmt.atributos == "*":
-                selected_rows.append(row)
-            else:
 
-                # Extrae todas las filas de tu tabla.
-                lower_row = {k.lower(): v for k, v in row.items()}
+        ################## INDEXAR #######################
 
-                # De cada atributo presente en tu fila, rescatas los valores de los atributos
-                # deseados
-                selected_rows.append({attr: lower_row.get(attr.lower(), None) for attr in stmt.atributos})
 
         print("\nResultado del SELECT:")
         for r in selected_rows:
@@ -98,25 +96,8 @@ class VisitorExecutor:
         else:
             last_id = 0
 
-        # Insertar todas las filas.
-        for RowToInsert in stmt.values:
+        ################## INDEXAR #######################
 
-
-            # Ejecutar en SQL para guardarlo en la BDD
-            RowInsert = [self.eval_condition(exp, RowToInsert) for exp in RowToInsert]
-            cursor.execute(query, RowInsert)
-
-            if 'id' not in stmt.atributos:
-                last_id += 1
-
-            # Guardado temporal en el diccionario usado
-            new_row = {att: None for att in TablaAtributos}
-            for attName, content in zip(stmt.atributos, RowInsert):
-                if 'id' not in stmt.atributos:
-                    new_row['id'] = last_id
-                new_row[attName.lower()] = content
-
-            self.db[table_name].append(new_row)
 
         # Guardar los cambios realizados
         self.conection.commit()
@@ -132,48 +113,9 @@ class VisitorExecutor:
 
         print("\nREPORTE DEL DELETE:")
 
-        # Array que controle las filas a borrar.
-        row_to_remove = []
+        ################## INDEXAR #######################
 
-        if stmt.condition is None:
-            row_to_remove = [row for row in self.db[stmt.table]]
-        else:
-            for row in self.db[stmt.table]:
-                if self.eval_condition(stmt.condition, row):
-                    row_to_remove.append(row)
-
-        if row_to_remove:
-
-            # FALTA CAMBIAR: Cambiar luego a cual sería el nombre de la primary key (cabecera del binario)
-            query = sql.SQL("DELETE FROM {table} WHERE id IN ({ids})").format(
-                table=sql.Identifier(stmt.table.lower()),
-                ids=sql.SQL(', ').join(sql.Placeholder() * len(row_to_remove))
-            )
-
-            # Ejecutando la query
-
-            row_id_remove = [row['id'] for row in row_to_remove]
-            cursor.execute(query, row_id_remove)
-
-            # Guardando los cambios
-            self.conection.commit()
-            cursor.close()
-
-
-            # Borrando en el diccionario
-            self.db[stmt.table] = [row for row in self.db[stmt.table]
-                                   if row['id'] not in row_to_remove]
-
-            # AGREGADO
-            self.bin_manager.save_table(stmt.table, self.db[stmt.table])
-
-            print(f"\nFilas eliminadas:")
-
-            for atribute in row_to_remove:
-                print(atribute)
-
-        else:
-            print("No se encontraron filas para eliminar. Consulta no ejecutada.")
+        print("No se encontraron filas para eliminar. Consulta no ejecutada.")
 
     def visit_create(self, stmt):
 
@@ -196,7 +138,7 @@ class VisitorExecutor:
         # Estructuramos el contenidos en sintaxis de postgres SQL.
         atribute_and_type = [tupla[:3] for tupla in stmt.columns]
 
-        is_array = lambda type_att: f"ARRAY[{type_att[1].name}]" if isinstance(type_att, list) else type_att.name
+        is_array = lambda type_att: f"{type_att[1].name}[]" if isinstance(type_att, list) else type_att.name
         is_pk = lambda pk: " PRIMARY KEY" if pk else ""
 
         columns = [att + " " + is_array(type_att) + is_pk(pk)
@@ -222,11 +164,15 @@ class VisitorExecutor:
 
                 att_index[att_content[3]].append(att_content[0])
 
-        print(att_index)
-
         # Añadiendo los indices
 
         for index in att_index:
+
+            # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
+            if index in ["AVL", "HASH", "SEQ", "RTREE"]:
+                continue
+
+            index_to_aplicar = index
             for attr in att_index[index]:
 
                 index_name = f"{stmt.name.lower()}_{index.lower()}_{attr.lower()}_idx"
@@ -234,7 +180,7 @@ class VisitorExecutor:
                 query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
                     name=sql.Identifier(index_name),
                     table=sql.Identifier(stmt.name.lower()),
-                    idx=sql.SQL(index.lower()),
+                    idx=sql.SQL(index_to_aplicar.lower()),
                     attribute=sql.Identifier(attr.lower())
                 )
 
@@ -260,91 +206,110 @@ class VisitorExecutor:
         print(f"\nTabla '{stmt.name}' creada con columnas: {list(columnas.keys())}")
 
     def visit_create_from_file(self, stmt):
+
         if stmt.name in self.db:
             raise ValueError(f"Tabla '{stmt.name}' ya existe")
 
+        cursor = self.conection.cursor()
+
         with open(stmt.file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
-            self.db[stmt.name] = [row for row in reader]
+
+            csv_content = [row for row in reader]
+
+        if not csv_content:
+            raise ValueError("El csv está vacio.")
+
+        self.db[stmt.name] = csv_content
+
+        keys = list(csv_content[0].keys())
+        values = [list(row.values()) for row in csv_content]
+
+
+        #### Creando la tabla ####
+
+        # Crear la tabla con columnas tipo TEXT por defecto
+        column_defs = ', '.join(f"{col} TEXT" for col in keys)
+        create_table_query = f'CREATE TABLE "{stmt.name.lower()}" ({column_defs});'
+        cursor.execute(create_table_query)
+
+        #### Insertando las filas ####
+
+        insert_query = sql.SQL("INSERT INTO {table} ({columns}) VALUES ({placeholders})").format(
+            table=sql.Identifier(stmt.name.lower()),
+            columns=sql.SQL(', ').join(map(sql.Identifier, keys)),
+            placeholders=sql.SQL(', ').join(sql.Placeholder() * len(keys))
+        )
+
+        for RowToInser in values:
+            cursor.execute(insert_query, RowToInser)
+
+        #### Insertando el indicd ####
+
+        # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
+        if stmt.index_type not in ["AVL", "HASH", "SEQ", "RTREE"]:
+
+            intex_to_aplicar = stmt.index_type
+
+            if intex_to_aplicar == "RTREE":
+                intex_to_aplicar = "GIST"
+
+            index_name = f"{stmt.name.lower()}_{intex_to_aplicar.lower()}_{stmt.index_field.lower()}_idx"
+
+            index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
+                name=sql.Identifier(index_name),
+                table=sql.Identifier(stmt.name.lower()),
+                idx=sql.SQL(intex_to_aplicar.lower()),
+                attribute=sql.Identifier(stmt.index_field.lower())
+            )
+
+            cursor.execute(index_query)
+
+        self.conection.commit()
+        cursor.close()
 
         print(f"\nTabla '{stmt.name}' creada desde archivo con {len(self.db[stmt.name])} filas")
 
-    # Para que el row? xd
+    def visit_create_index(self, stmt):
 
-    # No soporta operaciones binarias
-    def eval_condition(self, exp, row=None):
+        if stmt.table not in self.db:
+            raise ValueError(f"Tabla '{stmt.table}' no existe")
 
-        # Si por alguna razón entra, se considera.
-        if exp is None:
-            return True
+        TotalAtributos = self.db[stmt.table][0].keys()
 
-        return self.visit(exp, row)
+        for col in stmt.list_atributos:
+            if col.lower() not in TotalAtributos:
+                raise ValueError(f"No existe el atributo: {col} en la tabla {stmt.table}")
 
-    def visit(self, node, row=None):
+        # Asignarlo en la meta data
+        if stmt.index_type in ["AVL", "HASH", "SEQ", "RTREE"]:
+            return
 
-        result = 0
+        cursor = self.conection.cursor()
 
-        match node:
-            case IdExp():
+        index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attributes})").format(
+            name=sql.Identifier(stmt.index_name),
+            table=sql.Identifier(stmt.table.lower()),
+            idx=sql.SQL(stmt.index_type.lower()),
+            attributes=sql.SQL(', ').join(sql.Identifier(col.lower()) for col in stmt.list_atributos)
+        )
 
-                if row:
-                    result = row.get(node.name.lower())
-                else:
-                    result = node.name.lower()
+        cursor.execute(index_query)
 
-            case NumberExp():
-                result = node.value
-            case BoolExp():
-                result = node.boolean
-            case StringExp():
-                result = node.value
-            case BinaryExp():
+        self.conection.commit()
+        cursor.close()
 
-                v1 = self.visit(node.left, row)
-                v2 = self.visit(node.right, row)
-                op = node.op
+    def visit_drop_index(self, stmt):
 
-                match op:
+        cursor = self.conection.cursor()
 
-                    # Operaciones matemáticas
-                    case BinaryOp.PLUS_OP:
-                        result = v1 + v2
-                    case BinaryOp.MINUS_OP:
-                        result = v1 - v2
-                    case BinaryOp.MUL_OP:
-                        result = v1 * v2
-                    case BinaryOp.DIV_OP:
-                        if v2 == 0:
-                            raise ValueError("No se puede dividir entre 0")
-                        result = v1 / v2
+        index_query = sql.SQL("DROP INDEX {index}").format(
+            index = sql.Identifier(stmt.index_name.upper())
+        )
 
-                    # Comparaciones
-                    case BinaryOp.EQUAL_OP:
-                        result = int(v1 == v2)
-                    case BinaryOp.LESS_OP:
-                        result = int(v1 < v2)
-                    case BinaryOp.EQLESS_OP:
-                        result = int(v1 <= v2)
-                    case BinaryOp.MAYOR_OP:
-                        result = int(v1 > v2)
-                    case BinaryOp.EQMAYOR_OP:
-                        result = int(v1 >= v2)
-                    case BinaryOp.NOTEQUAL_OP:
-                        result = int(v1 != v2)
+        cursor.execute(index_query)
 
-                    # AND OR NOT
-                    case BinaryOp.AND_OP:
-                        result = int(v1 and v2)
-                    case BinaryOp.OR_OP:
-                        result = int(v1 or v2)
-                    case BinaryOp.NOT_OP:
-                        result = int(not v2)
+        self.conection.commit()
+        cursor.close()
 
-            case BetweenExp():
-                atributo = self.visit(node.atribute, row)
-                v1 = self.visit(node.left, row)
-                v2 = self.visit(node.right, row)
-
-                result = int(v1 <= atributo <= v2)
-
-        return result
+## Tener mucho cuidado con el indices, no todos estan disponibles en postgres.

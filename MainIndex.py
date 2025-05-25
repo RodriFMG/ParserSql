@@ -9,7 +9,7 @@ class MainIndex:
         self.attribute = atributte_name
         self.typeIndex = typeIndex
 
-        self.bin_path_table_index = f"./bin_data/BRUTE/{self.table}/"
+        self.bin_path_table_index = f"./bin_data/{typeIndex}/{self.table}/"
         self.bin_path_index = os.path.join(self.bin_path_table_index, "{self.attribute}.bin")
 
         if not os.path.exists(self.bin_path_table_index):

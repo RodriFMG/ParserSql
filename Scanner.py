@@ -68,7 +68,10 @@ class Scanner:
                 'HASH': Type.HASH,
                 'BTREE': Type.BTREE,
                 "RTREE": Type.RTREE,
-                "SEQ": Type.SEQ
+                "SEQ": Type.SEQ,
+                "AVL": Type.AVL,
+                "ON": Type.ON,
+                "DROP": Type.DROP,
             }
 
             if word in keyword_map:
