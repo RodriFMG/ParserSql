@@ -6,6 +6,7 @@ import psycopg2
 
 #AGREGADO
 def ExtractAllTables(conection):
+
     cursor = conection.cursor()
 
     cursor.execute("""
@@ -16,10 +17,13 @@ def ExtractAllTables(conection):
     """)
 
     tables = [tabla[0] for tabla in cursor.fetchall()]
+
     database = {}
 
     for tabla_name in tables:
         cursor.execute(f"SELECT * FROM {tabla_name}")
+
+        # Cursor description: Consigo el nombre de los atributos
         AtributeName = [atribute[0] for atribute in cursor.description]
         rows = cursor.fetchall()
 
@@ -38,7 +42,6 @@ def ExtractAllTables(conection):
 
     cursor.close()
     return database
-
 
 
 

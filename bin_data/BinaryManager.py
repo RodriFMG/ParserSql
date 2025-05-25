@@ -7,7 +7,9 @@ import psycopg2
 
 
 class BinStorageManager:
+
     def __init__(self, bin_dir='bin_data/Tablas/', pg_conn=None):
+
         self.bin_dir = bin_dir
         self.meta_file = os.path.join(bin_dir, "meta.json")
         os.makedirs(bin_dir, exist_ok=True)
@@ -193,5 +195,3 @@ class BinStorageManager:
         current_hash = self._compute_hash(rows)
         saved_info = self.meta.get(table_name.lower(), {})
         return saved_info.get("hash") == current_hash
-
-
