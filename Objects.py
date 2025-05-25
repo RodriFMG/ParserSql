@@ -58,6 +58,7 @@ class LogicalExp(Exp):
     def accept(self, visitor):
         return visitor.visit_logical_exp(self)
 
+
 class BetweenExp(Exp):
     def __init__(self, atribute, left, right):
         self.atribute = atribute
@@ -66,6 +67,8 @@ class BetweenExp(Exp):
 
     def accept(self, visitor):
         return visitor.visit_between_exp(self)
+
+
 class NotExp(Exp):
     def __init__(self, exp):
         super().__init__()
@@ -153,6 +156,28 @@ class CreateTableFromFile(Stms):
 
     def accept(self, visitor):
         return visitor.visit_create_from_file(self)
+
+
+class CreateIndex(Stms):
+    def __init__(self, table, index_name, index_type, list_atributos):
+        super().__init__()
+        self.table = table
+        self.index_name = index_name
+        self.index_type = index_type
+        self.list_atributos = list_atributos
+
+    def accept(self, visitor):
+        return visitor.visit_create_index(self)
+
+
+class DropIndex(Stms):
+
+    def __init__(self, index_name):
+        super().__init__()
+        self.index_name = index_name
+
+    def accept(self, visitor):
+        return visitor.visit_drop_index(self)
 
 
 # PROGRAMA PRINCIPAL

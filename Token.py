@@ -17,6 +17,8 @@ class Type(Enum):
     USING = "USING"
     PRIMARY = "PRIMARY"
     KEY = "KEY"
+    ON = "ON",
+    DROP = "DROP"
 
     # Tipos de indices
     INDEX = "INDEX"
@@ -24,6 +26,7 @@ class Type(Enum):
     RTREE = "RTREE"
     SEQ = "SEQUENTIAL"
     HASH = "HASH"
+    AVL = "AVL"
 
     # Tipos de datos
     INT = "INT"

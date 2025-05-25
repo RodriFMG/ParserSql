@@ -5,9 +5,7 @@ from bin_data.BinaryManager import BinStorageManager
 import psycopg2
 
 #AGREGADO
-bin_manager = BinStorageManager()
 def ExtractAllTables(conection):
-
     cursor = conection.cursor()
 
     cursor.execute("""
@@ -18,13 +16,10 @@ def ExtractAllTables(conection):
     """)
 
     tables = [tabla[0] for tabla in cursor.fetchall()]
-
     database = {}
 
     for tabla_name in tables:
         cursor.execute(f"SELECT * FROM {tabla_name}")
-
-        # Cursor description: Consigo el nombre de los atributos
         AtributeName = [atribute[0] for atribute in cursor.description]
         rows = cursor.fetchall()
 
@@ -35,10 +30,15 @@ def ExtractAllTables(conection):
                 dbrow.update({AtributeName[idx]: data_row})
             listrow.append(dbrow)
 
+        # Si no hay filas, se agrega una fila vacía con solo los encabezados
+        if not listrow:
+            listrow = [{col: None for col in AtributeName}]
+
         database.update({tabla_name.upper(): listrow})
 
     cursor.close()
     return database
+
 
 
 
@@ -53,10 +53,10 @@ def ver_tokens(code):
 
 if __name__ == "__main__":
 
-    with open('./code.txt', 'r', encoding='utf-8') as f:
+    with open('Codigos/code.txt', 'r', encoding='utf-8') as f:
         code = f.read()
 
-    with open("news_es.csv", encoding="utf-8") as f:
+    with open("CSV/news_es.csv", encoding="utf-8") as f:
         ver_tokens(code)
 
     scanner = Scanner(code)
@@ -74,8 +74,9 @@ if __name__ == "__main__":
 
     # Extraer TODAS las tablas de la base de datos
     db = ExtractAllTables(conn)
-
-#AGREGADO, VERIFICA LAS MODIFICACIONES
+    # AGREGADO
+    bin_manager = BinStorageManager(pg_conn=conn)
+    #AGREGADO, VERIFICA LAS MODIFICACIONES
     for table in db:
         if bin_manager.is_synced(table, db[table]):
             print(f"[BIN] Tabla '{table}' sincronizada. Cargando desde archivo binario.")
