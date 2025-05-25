@@ -3,6 +3,7 @@ import struct
 import hashlib
 import json
 from datetime import date, datetime
+from .Record import RecordGeneric
 import psycopg2
 
 
@@ -195,3 +196,22 @@ class BinStorageManager:
         current_hash = self._compute_hash(rows)
         saved_info = self.meta.get(table_name.lower(), {})
         return saved_info.get("hash") == current_hash
+
+    def load_records_as_objects(self, table_name):
+        """
+        Carga los registros del archivo binario como objetos RecordGeneric
+        """
+        rows = self.load_table(table_name)
+        if not rows:
+            return []
+
+        attribute_names = list(rows[0].keys())
+
+        record_objects = []
+        for row in rows:
+            record = RecordGeneric(attribute_names)
+            for attr in attribute_names:
+                setattr(record, attr, row.get(attr, None))
+            record_objects.append(record)
+
+        return record_objects
