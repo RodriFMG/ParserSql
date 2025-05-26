@@ -1,13 +1,15 @@
-from .Btree import BtreeIndex
-from .Rtree import RtreeIndex
+from .Btree import BTreeIndex
+from .Rtree import RTreeIndex
 from .Sequential import SequentialIndex
 from .AVL import AVLIndex
-from .BruteForm import BruteIndex
+from .ISAM import ISAMIndex
+from .Hash import HashIndex
 
 GetIndex = {
-    "BTREE":  BtreeIndex,
-    "RTREE": RtreeIndex,
+    "BTREE":  BTreeIndex,
+    "RTREE": RTreeIndex,
     "SEQ": SequentialIndex,
-    "NOTHING": BruteIndex,
-    "AVL": AVLIndex
+    "AVL": AVLIndex,
+    "ISAM": ISAMIndex,
+    "HASH": HashIndex
 }
