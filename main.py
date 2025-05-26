@@ -70,11 +70,11 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='postgres',
+        dbname='proydb2',
         user='postgres',
-        password='123',
+        password='2019wess:v',
         host='localhost',
-        port="5433"
+        port="5432"
     )
 
     # Extraer TODAS las tablas de la base de datos
@@ -96,17 +96,19 @@ if __name__ == "__main__":
 
     print("\nRegistros por tabla desde archivos binarios:")
 
+    '''
     for table in bin_manager.meta.keys():  # Recorre todas las tablas del meta.json
-        print(f"\nabla: {table}")
+        print(f"\nTabla: {table}")
         registros = bin_manager.load_records_as_objects(table)
         for r in registros:
             print(r.to_dict())
+    '''
 
     # Visualizar archivo .bin de una tabla específica después de ejecutar las instrucciones
-    tabla = "productos"  # 🔁 cambia por el nombre de tu tabla
+    tabla = "usuarios"  # 🔁 cambia por el nombre de tu tabla
     print(f"\nContenido actual de {tabla}.bin (desde archivo binario):")
     try:
-        contenido_bin = bin_manager.load_table(tabla)
+        contenido_bin = bin_manager.load_records_as_objects(tabla)
         for fila in contenido_bin:
             print(fila)
     except Exception as e:

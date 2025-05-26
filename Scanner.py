@@ -72,6 +72,7 @@ class Scanner:
                 "AVL": Type.AVL,
                 "ON": Type.ON,
                 "DROP": Type.DROP,
+                "ISAM": Type.ISAM
             }
 
             if word in keyword_map:

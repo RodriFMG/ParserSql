@@ -41,7 +41,6 @@ class VisitorExecutor:
 
         ################## INDEXAR #######################
 
-
         print("\nResultado del SELECT:")
         for r in selected_rows:
             print(r)
@@ -153,40 +152,6 @@ class VisitorExecutor:
         # Creamos la Tabla
         cursor.execute(query)
 
-        # Consiguiendo los atributos con el mismo índice
-        att_index = {}
-
-        for att_content in stmt.columns:
-            if att_content[3] is not None:
-
-                if att_content[3] not in att_index:
-                    att_index[att_content[3]] = []
-
-                att_index[att_content[3]].append(att_content[0])
-
-        # Añadiendo los indices
-
-        for index in att_index:
-
-            # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
-            if index in ["AVL", "HASH", "SEQ", "RTREE"]:
-                continue
-
-            index_to_aplicar = index
-            for attr in att_index[index]:
-
-                index_name = f"{stmt.name.lower()}_{index.lower()}_{attr.lower()}_idx"
-
-                query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
-                    name=sql.Identifier(index_name),
-                    table=sql.Identifier(stmt.name.lower()),
-                    idx=sql.SQL(index_to_aplicar.lower()),
-                    attribute=sql.Identifier(attr.lower())
-                )
-
-                # Creando cada indice
-                cursor.execute(query)
-
         # Que se guarde el nombre de las tablas en minúsculas.
         columnas = {col[0].lower(): None for col in stmt.columns}
 
@@ -212,6 +177,44 @@ class VisitorExecutor:
             })
 
         self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
+
+        # Consiguiendo los atributos con el mismo índice
+        att_index = {}
+
+        for att_content in stmt.columns:
+            if att_content[3] is not None:
+
+                if att_content[3] not in att_index:
+                    att_index[att_content[3]] = []
+
+                att_index[att_content[3]].append(att_content[0])
+
+        # Añadiendo los indices
+
+        for index in att_index:
+
+            # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
+            if index in ["HASH", "SEQ", "ISAM"]:
+                continue
+
+            index_to_aplicar = index
+            for attr in att_index[index]:
+
+                if index == "AVL" or index == "BTREE" or index == "RTREE":
+                    IndexFile = MainIndex(stmt.name, attr, index, self.conection)
+                    continue
+
+                index_name = f"{stmt.name.lower()}_{index.lower()}_{attr.lower()}_idx"
+
+                query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
+                    name=sql.Identifier(index_name),
+                    table=sql.Identifier(stmt.name.lower()),
+                    idx=sql.SQL(index_to_aplicar.lower()),
+                    attribute=sql.Identifier(attr.lower())
+                )
+
+                # Creando cada indice
+                cursor.execute(query)
 
         # Guardamos los cambios
         self.conection.commit()
@@ -261,12 +264,9 @@ class VisitorExecutor:
         #### Insertando el indicd ####
 
         # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
-        if stmt.index_type not in ["AVL", "HASH", "SEQ", "RTREE"]:
+        if stmt.index_type not in ["AVL", "HASH", "SEQ", "ISAM"]:
 
             intex_to_aplicar = stmt.index_type
-
-            if intex_to_aplicar == "RTREE":
-                intex_to_aplicar = "GIST"
 
             index_name = f"{stmt.name.lower()}_{intex_to_aplicar.lower()}_{stmt.index_field.lower()}_idx"
 
@@ -278,6 +278,9 @@ class VisitorExecutor:
             )
 
             cursor.execute(index_query)
+
+        header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
+        self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
 
         self.conection.commit()
         cursor.close()
@@ -296,7 +299,16 @@ class VisitorExecutor:
                 raise ValueError(f"No existe el atributo: {col} en la tabla {stmt.table}")
 
         # Asignarlo en la meta data
-        if stmt.index_type in ["AVL", "HASH", "SEQ", "RTREE"]:
+
+        if stmt.index_type in ["HASH", "SEQ", "ISAM"]:
+            return
+
+        # Aplicar los create index a cada atributo:
+
+        if stmt.index_type == "AVL" or stmt.index_type == "BTREE" or stmt.index_type == "RTREE":
+            for att in stmt.list_atributos:
+                IndexFile = MainIndex(stmt.table, att, stmt.index_type, self.conection)
+
             return
 
         cursor = self.conection.cursor()
@@ -309,6 +321,9 @@ class VisitorExecutor:
         )
 
         cursor.execute(index_query)
+
+        header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
+        self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
 
         self.conection.commit()
         cursor.close()
@@ -325,5 +340,77 @@ class VisitorExecutor:
 
         self.conection.commit()
         cursor.close()
+
+
+
+    def eval_condition(self, exp, row=None):
+
+        # Si por alguna razón entra, se considera.
+        if exp is None:
+            return True
+
+        return self.visit(exp, row)
+
+    def visit(self, node, row=None):
+
+        result = 0
+
+        match node:
+            case IdExp():
+
+                if row:
+                    result = row.get(node.name.lower())
+                else:
+                    result = node.name.lower()
+
+            case NumberExp():
+                result = node.value
+            case BoolExp():
+                result = node.boolean
+            case StringExp():
+                result = node.value
+            case BinaryExp():
+
+                v1 = self.visit(node.left, row)
+                v2 = self.visit(node.right, row)
+                op = node.op
+
+                match op:
+
+                    # Operaciones matemáticas
+                    case BinaryOp.PLUS_OP:
+                        result = v1 + v2
+                    case BinaryOp.MINUS_OP:
+                        result = v1 - v2
+                    case BinaryOp.MUL_OP:
+                        result = v1 * v2
+                    case BinaryOp.DIV_OP:
+                        if v2 == 0:
+                            raise ValueError("No se puede dividir entre 0")
+                        result = v1 / v2
+
+                    # Comparaciones
+                    case BinaryOp.EQUAL_OP:
+                        result = int(v1 == v2)
+                    case BinaryOp.LESS_OP:
+                        result = int(v1 < v2)
+                    case BinaryOp.EQLESS_OP:
+                        result = int(v1 <= v2)
+                    case BinaryOp.MAYOR_OP:
+                        result = int(v1 > v2)
+                    case BinaryOp.EQMAYOR_OP:
+                        result = int(v1 >= v2)
+                    case BinaryOp.NOTEQUAL_OP:
+                        result = int(v1 != v2)
+
+                    # AND OR NOT
+                    case BinaryOp.AND_OP:
+                        result = int(v1 and v2)
+                    case BinaryOp.OR_OP:
+                        result = int(v1 or v2)
+                    case BinaryOp.NOT_OP:
+                        result = int(not v2)
+
+        return result
 
 ## Tener mucho cuidado con el indices, no todos estan disponibles en postgres.

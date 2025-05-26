@@ -24,6 +24,49 @@ class BinStorageManager:
         else:
             self.meta = {}
 
+    def get_type_att(self, table_name, attribute_name):
+
+        try:
+            with open(self.meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+
+            table_name = table_name.lower()
+            attribute_name = attribute_name.lower()
+
+            if table_name not in meta:
+                raise ValueError(f"La tabla '{table_name}' no se encuentra en el archivo meta.json.")
+
+            for column in meta[table_name]["columns"]:
+                if column["name"] == attribute_name:
+                    return column["type"]
+
+            raise ValueError(f"El atributo '{attribute_name}' no se encuentra en la tabla '{table_name}'.")
+
+        except Exception as e:
+            print(f"Error al cargar el tipo del atributo: {e}")
+            return None
+
+    def get_indexs_att(self, table_name, attribute_name):
+        try:
+            with open(self.meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+
+            table_name = table_name.lower()
+            attribute_name = attribute_name.lower()
+
+            if table_name not in meta:
+                raise ValueError(f"La tabla '{table_name}' no se encuentra en el archivo meta.json.")
+
+            for column in meta[table_name]["columns"]:
+                if column["name"] == attribute_name:
+                    return column.get("indexes", [])
+
+            raise ValueError(f"El atributo '{attribute_name}' no se encuentra en la tabla '{table_name}'.")
+
+        except Exception as e:
+            print(f"Error al obtener los índices del atributo: {e}")
+            return []
+
     def _save_metadata(self):
         with open(self.meta_file, 'w') as f:
             json.dump(self.meta, f, indent=4)
@@ -35,7 +78,7 @@ class BinStorageManager:
         def _default_serializer(obj):
             if isinstance(obj, (date, datetime)):
                 return obj.isoformat()
-            raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+            raise TypeError(f"Object of type {obj._class.name_} is not JSON serializable")
         row_str = json.dumps(rows, sort_keys=True, default=_default_serializer).encode('utf-8')
         return hashlib.md5(row_str).hexdigest()
 
@@ -164,6 +207,11 @@ class BinStorageManager:
 
     def load_table(self, table_name):
         file_path = self._get_table_path(table_name)
+        meta = self.meta.get(table_name.lower(), {})
+        types = {}
+        if meta and "columns" in meta:
+            types = {col["name"]: col["type"].upper() for col in meta["columns"]}
+
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"No existe archivo binario para '{table_name}'")
 
@@ -187,8 +235,28 @@ class BinStorageManager:
                     val_len = struct.unpack('I', f.read(4))[0]
                     val = f.read(val_len).decode('utf-8')
                     values.append(val)
-                row = dict(zip(header, values))
-                rows.append(row)
+
+                typed_row = {}
+                for col_name, val in zip(header, values):
+                    col_type = types.get(col_name, "TEXT")
+
+                    try:
+                        if col_type in ["INT", "SERIAL"]:
+                            typed_row[col_name] = int(val)
+                        elif col_type == "FLOAT":
+                            typed_row[col_name] = float(val)
+                        elif col_type == "BOOLEAN":
+                            typed_row[col_name] = val.lower() in ['true', '1']
+                        elif col_type == "DATE":
+                            typed_row[col_name] = datetime.fromisoformat(val).date()
+                        elif col_type.startswith("ARRAY"):
+                            typed_row[col_name] = json.loads(val)
+                        else:
+                            typed_row[col_name] = val
+                    except Exception:
+                        typed_row[col_name] = val  # fallback si falla la conversión
+
+                rows.append(typed_row)
 
         return rows
 

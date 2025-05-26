@@ -179,7 +179,7 @@ class ParserSQL:
                     if not self.match(Type.INDEX):
                         raise ValueError("Se esperaba 'INDEX'")
                     if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE) \
-                            and not self.match(Type.HASH) and not self.match(Type.AVL):
+                            and not self.match(Type.HASH) and not self.match(Type.AVL) and not self.match(Type.ISAM):
                         raise ValueError(f"No existe el indice: {self.current.text}")
                     index_type = self.previous.text
                     if not self.match(Type.LPAREN):
@@ -241,7 +241,7 @@ class ParserSQL:
 
                         if self.match(Type.INDEX):
                             if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE) \
-                                    and not self.match(Type.HASH) and not self.match(Type.AVL):
+                                    and not self.match(Type.HASH) and not self.match(Type.AVL) and not self.match(Type.ISAM):
                                 raise ValueError(f"No existe el indice: {self.current.text}")
 
                             Index = self.previous.text
@@ -275,7 +275,8 @@ class ParserSQL:
 
                 if self.match(Type.USING):
                     if not self.match(Type.BTREE) and not self.match(Type.AVL) and not self.match(Type.RTREE) and \
-                            not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.HASH):
+                            not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.HASH) \
+                            and not self.match(Type.ISAM):
                         raise ValueError("Se esperaba un tipo de indice permitido.")
 
                     index_type = self.previous.text

@@ -27,6 +27,7 @@ class Type(Enum):
     SEQ = "SEQUENTIAL"
     HASH = "HASH"
     AVL = "AVL"
+    ISAM = "ISAM"
 
     # Tipos de datos
     INT = "INT"

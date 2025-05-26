@@ -1,0 +1,3 @@
+
+class HashIndex:
+    pass
