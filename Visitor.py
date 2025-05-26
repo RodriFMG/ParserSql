@@ -5,6 +5,8 @@ from psycopg2 import sql
 from Token import Type
 from bin_data.BinaryManager import BinStorageManager
 from MainIndex import MainIndex
+from datetime import datetime
+
 
 
 class VisitorExecutor:
@@ -22,7 +24,6 @@ class VisitorExecutor:
 
         self.conection.commit()
         cursor.close()
-
 
     def visit_select(self, stmt):
         table_name = stmt.table
@@ -288,43 +289,44 @@ class VisitorExecutor:
         print(f"\nTabla '{stmt.name}' creada desde archivo con {len(self.db[stmt.name])} filas")
 
     def visit_create_index(self, stmt):
+        table_name = stmt.table.lower()
 
-        if stmt.table not in self.db:
+        if table_name not in self.bin_manager.meta:
             raise ValueError(f"Tabla '{stmt.table}' no existe")
 
-        TotalAtributos = self.db[stmt.table][0].keys()
+        total_atributos = [col["name"] for col in self.bin_manager.meta[table_name]["columns"]]
 
         for col in stmt.list_atributos:
-            if col.lower() not in TotalAtributos:
+            if col.lower() not in total_atributos:
                 raise ValueError(f"No existe el atributo: {col} en la tabla {stmt.table}")
 
-        # Asignarlo en la meta data
-
-        if stmt.index_type in ["HASH", "SEQ", "ISAM"]:
-            return
-
-        # Aplicar los create index a cada atributo:
-
-        if stmt.index_type == "AVL" or stmt.index_type == "BTREE" or stmt.index_type == "RTREE":
+        # Aplicar índices nativos de Python
+        if stmt.index_type in ["AVL", "HASH", "SEQ", "ISAM", "BTREE", "RTREE"]:
             for att in stmt.list_atributos:
-                IndexFile = MainIndex(stmt.table, att, stmt.index_type, self.conection)
+                if stmt.index_type in ["AVL", "BTREE", "RTREE"]:
+                    _ = MainIndex(stmt.table, att, stmt.index_type, self.conection)
+
+                #Actualizar el meta.json en la tabla correcta
+                table_meta = self.bin_manager.meta.get(table_name)
+                if table_meta:
+                    for col_meta in table_meta["columns"]:
+                        if col_meta["name"] == att.lower():
+                            if stmt.index_type.lower() not in col_meta["indexes"]:
+                                col_meta["indexes"].append(stmt.index_type.lower())
+                    table_meta["last_modified"] = datetime.now().isoformat()
+                    self.bin_manager._save_metadata()
 
             return
 
+        # Para índices PostgreSQL nativos
         cursor = self.conection.cursor()
-
         index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attributes})").format(
             name=sql.Identifier(stmt.index_name),
-            table=sql.Identifier(stmt.table.lower()),
+            table=sql.Identifier(table_name),
             idx=sql.SQL(stmt.index_type.lower()),
             attributes=sql.SQL(', ').join(sql.Identifier(col.lower()) for col in stmt.list_atributos)
         )
-
         cursor.execute(index_query)
-
-        header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
-        self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
-
         self.conection.commit()
         cursor.close()
 

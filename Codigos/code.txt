@@ -1,4 +1,5 @@
-CREATE INDEX idnew210120 ON usuarios USING RTREE (id, edad)
-CREATE INDEX NoticiasIndexBTREE ON NOTICIAS (url, contenido)
-CREATE INDEX NoticiasIndexAVL ON NOTICIAS USING AVL (categoria)
-CREATE INDEX NoticiasIndexAVL ON NOTICIAS USING BTREE (categoria)
+CREATE INDEX idnew210120 ON usuarios USING BTREE (id, edad);
+CREATE INDEX NoticiasIndexBTREE ON noticias (url, contenido);
+CREATE INDEX NoticiasIndexAVL ON noticias USING AVL (categoria);
+CREATE INDEX NoticiasIndexAVL ON noticias USING BTREE (categoria);
+

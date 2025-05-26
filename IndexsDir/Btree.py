@@ -3,7 +3,7 @@ import os
 
 
 class KeyHandler:
-    def __init__(self, tipo: str, size=20):
+    def __init__(self, tipo: str, size=50):
         self.tipo = tipo.lower()
         self.size = size
 
@@ -13,7 +13,7 @@ class KeyHandler:
             return struct.pack('i', key)
         elif self.tipo == 'float':
             return struct.pack('f', key)
-        elif self.tipo == 'str':
+        elif self.tipo == 'str' or self.tipo == 'text':
             return key.encode('utf-8').ljust(self.size, b'\x00')
 
     def deserialize(self, data):
@@ -21,7 +21,7 @@ class KeyHandler:
             return struct.unpack('i', data)[0]
         elif self.tipo == 'float':
             return struct.unpack('f', data)[0]
-        elif self.tipo == 'str':
+        elif self.tipo == 'str' or self.tipo == 'text':
             return data.rstrip(b'\x00').decode('utf-8')
 
     def compare(self, a, b):
@@ -88,7 +88,7 @@ class LeafNode:
         self.key_handler = key_handler
 
     def to_bytes(self, order):
-        key_size = self.key_handler.size if self.key_handler.tipo == 'str' else 4
+        key_size = self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4
         header = struct.pack(self.HEADER_FORMAT, self.is_leaf, self.parent, self.n_keys, self.next_leaf)
         body = b''
         for i in range(order - 1):
@@ -101,7 +101,7 @@ class LeafNode:
                     key = self.key_handler.serialize(0)
                 elif self.key_handler.tipo == 'float':
                     key = self.key_handler.serialize(0.0)
-                else:
+                elif self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text':
                     key = self.key_handler.serialize("")
                 pos = struct.pack('q', -1)
             print(key, pos)
@@ -117,7 +117,7 @@ class LeafNode:
         is_leaf, parent, n_keys, next_leaf = header
         offset = LeafNode.HEADER_SIZE
         values = []
-        key_size = key_handler.size if key_handler.tipo == 'str' else 4
+        key_size = key_handler.size if key_handler.tipo == 'str' or key_handler.tipo == 'text' else 4
         for _ in range(n_keys):
             key_bytes = data[offset:offset + key_size]
             key = key_handler.deserialize(key_bytes)
@@ -147,7 +147,7 @@ class InternalNode:
         self.key_handler = key_handler
 
     def to_bytes(self, order):
-        key_size = self.key_handler.size if self.key_handler.tipo == 'str' else 4
+        key_size = self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4
         header = struct.pack(self.HEADER_FORMAT, self.is_leaf, self.parent, self.n_keys)
         body = b''
         # punteros hijos
@@ -164,7 +164,7 @@ class InternalNode:
                     key = self.key_handler.serialize(0)
                 elif self.key_handler.tipo == 'float':
                     key = self.key_handler.serialize(0.0)
-                else:
+                elif self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text':
                     key = self.key_handler.serialize("")
             body += key
         final = header + body
@@ -183,7 +183,7 @@ class InternalNode:
             offset += 8
             children.append(ptr)
         keys = []
-        key_size = key_handler.size if key_handler.tipo == 'str' else 4
+        key_size = key_handler.size if key_handler.tipo == 'str' or key_handler.tipo == 'text' else 4
         for _ in range(order - 1):
             key_bytes = data[offset:offset + key_size]
             key = key_handler.deserialize(key_bytes)
@@ -234,11 +234,11 @@ class BTreeIndex:
                 raise IOError("Archivo de nodos corrupto o incompleto")
 
     def leaf_node_size(self):
-        key_size = self.key_handler.size if self.key_handler.tipo == 'str' else 4
+        key_size = self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4
         return LeafNode.HEADER_SIZE + (key_size + 8) * (self.order - 1)
 
     def internal_node_size(self):
-        key_size = self.key_handler.size if self.key_handler.tipo == 'str' else 4
+        key_size = self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4
         return InternalNode.HEADER_SIZE + (self.order * 8) + ((self.order - 1) * key_size)
 
     def write_node(self, node, pos):
@@ -319,8 +319,9 @@ class BTreeIndex:
         node = self.read_node(pos)
 
         if node.is_leaf:
+            # Permitimos claves duplicadas
             node.values.append([key, data_pos])
-            node.values.sort(key=lambda x: x[0])
+            node.values.sort(key=lambda x: (x[0], x[1]))
             if len(node.values) < self.order:
                 node.n_keys = len(node.values)
                 self.write_node(node, pos)

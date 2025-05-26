@@ -13,7 +13,7 @@ class KeyHandler:
             return struct.pack('i', key)
         elif self.tipo == 'float':
             return struct.pack('f', key)
-        elif self.tipo == 'str':
+        elif self.tipo == 'str'or self.tipo == 'text':
             return key.encode('utf-8').ljust(self.size, b'\x00')
 
     def deserialize(self, data):
@@ -21,7 +21,7 @@ class KeyHandler:
             return struct.unpack('i', data)[0]
         elif self.tipo == 'float':
             return struct.unpack('f', data)[0]
-        elif self.tipo == 'str':
+        elif self.tipo == 'str'or self.tipo == 'text':
             return data.rstrip(b'\x00').decode('utf-8')
 
     def compare(self, a, b):
@@ -42,7 +42,7 @@ class IndexNode:
 
     @staticmethod
     def from_bytes(data: bytes, key_handler: KeyHandler):
-        key_size = key_handler.size if key_handler.tipo == 'str' else 4
+        key_size = key_handler.size if key_handler.tipo == 'str' or key_handler.tipo == 'text' else 4
         key = key_handler.deserialize(data[:key_size])
         pos, left, right, height = struct.unpack('iiii', data[key_size:])
         return IndexNode(key, pos, left, right, height)
@@ -54,7 +54,7 @@ class AVLIndex:
 
             self.key_handler = KeyHandler(tipo=atribute_type)
             self.filename = file_name
-            self.record_size = (self.key_handler.size if self.key_handler.tipo == 'str' else 4) + 16
+            self.record_size = (self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4) + 16
 
             if not is_create_bin:
 

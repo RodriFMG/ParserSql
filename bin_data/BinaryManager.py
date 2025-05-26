@@ -156,7 +156,8 @@ class BinStorageManager:
     def save_table(self, table_name, rows, header=None):
         file_path = self._get_table_path(table_name)
 
-        if os.path.exists(file_path) and self.is_synced(table_name, rows):
+        # Forzar siempre guardar si se pasa un nuevo header explícito
+        if os.path.exists(file_path) and self.is_synced(table_name, rows) and header is None:
             print(f"[BIN] No se modificó '{table_name}.bin', está sincronizado.")
             return
 

@@ -5,7 +5,6 @@ from bin_data.BinaryManager import BinStorageManager
 import psycopg2
 
 
-
 #AGREGADO
 def ExtractAllTables(conection):
 
@@ -70,11 +69,11 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='proydb2',
+        dbname='postgres',
         user='postgres',
-        password='2019wess:v',
+        password='123',
         host='localhost',
-        port="5432"
+        port="5433"
     )
 
     # Extraer TODAS las tablas de la base de datos
@@ -97,22 +96,14 @@ if __name__ == "__main__":
     print("\nRegistros por tabla desde archivos binarios:")
 
     '''
-    for table in bin_manager.meta.keys():  # Recorre todas las tablas del meta.json
-        print(f"\nTabla: {table}")
-        registros = bin_manager.load_records_as_objects(table)
-        for r in registros:
-            print(r.to_dict())
-    '''
+        for table in bin_manager.meta.keys():  # Recorre todas las tablas del meta.json
+            print(f"\nTabla: {table}")
+            registros = bin_manager.load_records_as_objects(table)
+            for r in registros:
+                print(r.to_dict())
+        '''
 
     # Visualizar archivo .bin de una tabla específica después de ejecutar las instrucciones
-    tabla = "usuarios"  # 🔁 cambia por el nombre de tu tabla
-    print(f"\nContenido actual de {tabla}.bin (desde archivo binario):")
-    try:
-        contenido_bin = bin_manager.load_records_as_objects(tabla)
-        for fila in contenido_bin:
-            print(fila)
-    except Exception as e:
-        print(f" Error al leer el archivo binario de '{tabla}':", e)
 
     conn.close()
 
