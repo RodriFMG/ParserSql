@@ -62,8 +62,11 @@ class AVLIndex:
                 with open(self.filename, "wb") as f:
                     f.write(struct.pack("i", -1))
 
-                for i, record in enumerate(records):
-                    self.insert(record.to_dict()[atribute_index.lower()], i)
+                # records[0] = cabeceras
+                if len(records) > 1:
+                    for i, record in enumerate(records):
+                        self.insert(record.to_dict()[atribute_index.lower()], i)
+
                 print(f"Índice AVL creado exitosamente en {self.filename}")
 
 

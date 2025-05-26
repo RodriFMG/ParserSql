@@ -34,7 +34,6 @@ class VisitorExecutor:
             raise ValueError(f"Tabla '{table_name}' no encontrada")
 
         rows = self.db[table_name]
-        selected_rows = []
 
         TablaAtributos = rows[0].keys()
         for att in stmt.atributos:
@@ -43,7 +42,12 @@ class VisitorExecutor:
 
 
         ################## INDEXAR #######################
-        QueryIndex = MainIndex
+
+        indices_of_att = self.bin_manager.get_indexs_att(table_name, stmt.atributos[0])
+
+        Index = MainIndex(stmt.table, stmt.atributos[0], indices_of_att[0].upper(), self.conection)
+
+        selected_rows = Index.range_search(1, 40)
 
         print("\nResultado del SELECT:")
         for r in selected_rows:

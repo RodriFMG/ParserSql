@@ -6,7 +6,6 @@ from datetime import date, datetime
 from .Record import RecordGeneric
 import psycopg2
 
-
 class BinStorageManager:
 
     def __init__(self, bin_dir='bin_data/Tablas/', pg_conn=None):
@@ -82,7 +81,8 @@ class BinStorageManager:
         row_str = json.dumps(rows, sort_keys=True, default=_default_serializer).encode('utf-8')
         return hashlib.md5(row_str).hexdigest()
 
-    def _reconstruct_header_from_postgres(self, table_name):
+    def _get_index_postgres(self, table_name):
+
         if not self.pg_conn:
             raise ValueError("No se puede reconstruir header: conexión PostgreSQL no proporcionada")
 
@@ -106,11 +106,23 @@ class BinStorageManager:
             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
             WHERE t.relname = %s;
         """, (table_name.lower(),))
+
         index_info = cursor.fetchall()
+
 
         index_map = {}
         for col, idx_type in index_info:
             index_map.setdefault(col, []).append(idx_type.lower())
+
+        cursor.close()
+
+        return columns, index_map
+
+    def _reconstruct_header_from_postgres(self, table_name):
+        if not self.pg_conn:
+            raise ValueError("No se puede reconstruir header: conexión PostgreSQL no proporcionada")
+
+        columns, index_map = self._get_index_postgres(table_name)
 
         def sql_to_token(col_name, sql_type):
             cursor = self.pg_conn.cursor()
@@ -150,7 +162,6 @@ class BinStorageManager:
                 "indexes": index_map.get(col_name, [])
             })
 
-        cursor.close()
         return header
 
     def save_table(self, table_name, rows, header=None):

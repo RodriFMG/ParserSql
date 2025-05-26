@@ -3,12 +3,15 @@ from Parser import ParserSQL
 from Visitor import VisitorExecutor
 from bin_data.BinaryManager import BinStorageManager
 import psycopg2
+import os
+from MainIndex import MainIndex
 
 
-#AGREGADO
+# AGREGADO
 def ExtractAllTables(conection):
-
     cursor = conection.cursor()
+
+    os.makedirs("./bin_data/Tablas", exist_ok=True)
 
     cursor.execute("""
         SELECT table_name
@@ -45,7 +48,6 @@ def ExtractAllTables(conection):
     return database
 
 
-
 def ver_tokens(code):
     scanner = Scanner(code)
     while True:
@@ -55,13 +57,20 @@ def ver_tokens(code):
             break
 
 
+def CreateIndexOfPostgresToPython(table_name, index_map, pg_conn):
+
+    for att in index_map.keys():
+        for index in index_map[att]:
+            _ = MainIndex(table_name, att, index, pg_conn)
+
+
 if __name__ == "__main__":
 
     with open('Codigos/code.txt', 'r', encoding='utf-8') as f:
         code = f.read()
 
-    with open("CSV/news_es.csv", encoding="utf-8") as f:
-        ver_tokens(code)
+    # with open("CSV/news_es.csv", encoding="utf-8") as f:
+    #    ver_tokens(code)
 
     scanner = Scanner(code)
     parser = ParserSQL(scanner)
@@ -78,16 +87,25 @@ if __name__ == "__main__":
 
     # Extraer TODAS las tablas de la base de datos
     db = ExtractAllTables(conn)
+
     # AGREGADO
     bin_manager = BinStorageManager(pg_conn=conn)
-    #AGREGADO, VERIFICA LAS MODIFICACIONES
+    # AGREGADO, VERIFICA LAS MODIFICACIONES
     for table in db:
+
+        if table.upper() == "SPATIAL_REF_SYS":
+            continue
+
         if bin_manager.is_synced(table, db[table]):
             print(f"[BIN] Tabla '{table}' sincronizada. Cargando desde archivo binario.")
             db[table] = bin_manager.load_table(table)
+
         else:
             print(f"[BIN] Tabla '{table}' desactualizada. Guardando nueva versión.")
             bin_manager.save_table(table, db[table])
+            print("tabla actual: ", table)
+            _, index_map = bin_manager._get_index_postgres(table)
+            CreateIndexOfPostgresToPython(table, index_map, conn)
 
     # Ejecutar código
     executor = VisitorExecutor(db, conn)
@@ -106,4 +124,3 @@ if __name__ == "__main__":
     # Visualizar archivo .bin de una tabla específica después de ejecutar las instrucciones
 
     conn.close()
-

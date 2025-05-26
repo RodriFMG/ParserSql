@@ -1,8 +1,13 @@
 from IndexsDir.DicIndexs import GetIndex
 import os
-from bin_data.BinaryManager import BinStorageManager
 import sys
 import numpy as np
+
+
+def usar_bin(connection):
+    from bin_data.BinaryManager import BinStorageManager
+    return BinStorageManager(pg_conn=connection)
+
 
 # En caso no soporte ese indice las operaciones, pasamos con su siguiente indice anclado.
 class MainIndex:
@@ -11,9 +16,11 @@ class MainIndex:
 
         self.table = table_name.lower()
         self.attribute = atributte_name
-        self.typeIndex = typeIndex.upper()
-        self.bin_manager = BinStorageManager(pg_conn=conn)
 
+        typeIndex = typeIndex or "AVL"
+
+        self.typeIndex = typeIndex.upper()
+        self.bin_manager = usar_bin(conn)
 
         self.bin_path_table_index = f"./bin_data/{self.typeIndex}/{self.table}/"
         self.bin_path_index = os.path.join(self.bin_path_table_index, f"{self.attribute}.bin")
@@ -22,7 +29,6 @@ class MainIndex:
             os.makedirs(self.bin_path_table_index)
 
         self.attribute_type = self.bin_manager.get_type_att(self.table, self.attribute)
-
 
         # size del keyhandler para las estructuras de datos.
         records_table = self.bin_manager.load_records_as_objects(table_name)
@@ -44,18 +50,17 @@ class MainIndex:
                 with open(self.bin_path_index, "wb") as f:
                     pass
 
-
-            self.Index = GetIndex[typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
+            self.Index = GetIndex[self.typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
                                              records=records_table,
                                              is_create_bin=False,
-                                             data_name = self.bin_path_table_index,
-                                             size_kh = size_keyhandler)
+                                             data_name=self.bin_path_table_index,
+                                             size_kh=size_keyhandler)
 
         else:
-            self.Index = GetIndex[typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
+            self.Index = GetIndex[self.typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
                                              is_create_bin=True,
-                                             data_name = self.bin_path_table_index,
-                                             size_kh = size_keyhandler)
+                                             data_name=self.bin_path_table_index,
+                                             size_kh=size_keyhandler)
 
     def insert(self, key, record):
         self.Index.insert(key, record)

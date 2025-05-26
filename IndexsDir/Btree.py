@@ -221,15 +221,20 @@ class BTreeIndex:
         self.root_pos = -1
 
         if not is_create_bin:
+
             with open(self.node_file, 'wb') as f:
                 f.write(struct.pack(self.HEADER_FORMAT, -1, order, 0))
 
-            for i, record in enumerate(records):
-                self.insert(record.to_dict()[atribute_index.lower()], i)
 
-            print(f"Índice AVL creado exitosamente en {self.node_file}")
+            # records[0] = cabeceras
+            if len(records) > 1:
+                for i, record in enumerate(records):
+                    self.insert(record.to_dict()[atribute_index.lower()], i)
+
+            print(f"Índice BTREE creado exitosamente en {self.node_file}")
 
         with open(self.node_file, 'rb') as f:
+
             header_bytes = f.read(self.HEADER_SIZE)
             if len(header_bytes) == self.HEADER_SIZE:
                 self.root_pos, self.order, self.record_count = struct.unpack(self.HEADER_FORMAT, header_bytes)
