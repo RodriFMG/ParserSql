@@ -1,5 +1,7 @@
-CREATE INDEX idnew210120 ON usuarios USING BTREE (id, edad);
-CREATE INDEX NoticiasIndexBTREE ON noticias (url, contenido);
-CREATE INDEX NoticiasIndexAVL ON noticias USING AVL (categoria);
-CREATE INDEX NoticiasIndexAVL ON noticias USING BTREE (categoria);
-
+CREATE TABLE empleados (
+    id SERIAL PRIMARY KEY INDEX RTREE,
+    nombre TEXT,
+    edad INT,
+    salario INT INDEX BTREE,
+    fechaingreso DATE
+);

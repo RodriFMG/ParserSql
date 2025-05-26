@@ -50,9 +50,10 @@ class IndexNode:
 
 class AVLIndex:
 
-    def __init__(self, atribute_index, atribute_type, file_name, data_name = None ,records = None, is_create_bin = False):
+    def __init__(self, atribute_index, atribute_type, file_name, data_name = None,
+                size_kh = None, records = None, is_create_bin = False):
 
-            self.key_handler = KeyHandler(tipo=atribute_type)
+            self.key_handler = KeyHandler(tipo=atribute_type, size = size_kh)
             self.filename = file_name
             self.record_size = (self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4) + 16
 
@@ -154,7 +155,7 @@ class AVLIndex:
 
         if cmp < 0:
             node.left = self._insert_rec(file, node.left, key, pos_dato)
-        elif cmp > 0:
+        elif cmp >= 0:
             node.right = self._insert_rec(file, node.right, key, pos_dato)
         else:
             raise ValueError(f"Clave duplicada: {key}")

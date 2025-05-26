@@ -4,7 +4,7 @@ import glob
 
 
 class RTreeIndex:
-    def __init__(self, atribute_index, atribute_type, file_name,
+    def __init__(self, atribute_index, atribute_type, file_name, size_kh = None,
                  is_create_bin=False, data_name=None, records=None, order=10):
 
         atribute_type = atribute_type.lower()

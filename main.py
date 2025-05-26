@@ -69,11 +69,11 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='postgres',
+        dbname='proydb2',
         user='postgres',
-        password='123',
+        password='2019wess:v',
         host='localhost',
-        port="5433"
+        port="5432"
     )
 
     # Extraer TODAS las tablas de la base de datos

@@ -200,6 +200,7 @@ class ParserSQL:
 
                         if not self.match(Type.ID):
                             raise ValueError("Se esperaba nombre de columna")
+
                         col_name = self.previous.text
 
                         if not self.match(Type.INT) and not self.match(Type.TEXT) and not self.match(
@@ -247,7 +248,7 @@ class ParserSQL:
                             Index = self.previous.text
 
                         # Atributo Name - Atributo Type - Primary Key - Index Type
-                        columns.append((col_name, col_type, is_primary_key, Index))
+                        columns.append([col_name, col_type, is_primary_key, Index])
 
                         if not self.match(Type.COMA):
                             break

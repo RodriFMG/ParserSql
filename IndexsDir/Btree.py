@@ -1,6 +1,7 @@
 import struct
 import os
-
+import sys
+import numpy as np
 
 class KeyHandler:
     def __init__(self, tipo: str, size=50):
@@ -80,6 +81,7 @@ class LeafNode:
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
     def __init__(self, parent, n_keys, next_leaf, values, key_handler):
+
         self.is_leaf = True
         self.parent = parent
         self.n_keys = n_keys
@@ -104,7 +106,7 @@ class LeafNode:
                 elif self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text':
                     key = self.key_handler.serialize("")
                 pos = struct.pack('q', -1)
-            print(key, pos)
+
             body += key + pos
         final = header + body
         expected = self.HEADER_SIZE + (key_size + 8) * (order - 1)
@@ -206,14 +208,15 @@ class BTreeIndex:
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
     # node_file, data_file, order=4, key_type='str', key_size=50, key_attr_index=0
-    def __init__(self, atribute_index, atribute_type, file_name, data_name = None, records = None,
+    def __init__(self, atribute_index, atribute_type, file_name, size_kh = None
+                 , data_name = None, records = None,
                  is_create_bin = False, order = 4):
 
 
         self.node_file = file_name
         self.data_file = data_name
         self.order = order
-        self.key_handler = KeyHandler(tipo=atribute_type)
+        self.key_handler = KeyHandler(tipo=atribute_type, size=size_kh)
         self.record_count = 0
         self.root_pos = -1
 

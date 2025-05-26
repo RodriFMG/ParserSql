@@ -1,7 +1,8 @@
 from IndexsDir.DicIndexs import GetIndex
 import os
 from bin_data.BinaryManager import BinStorageManager
-
+import sys
+import numpy as np
 
 # En caso no soporte ese indice las operaciones, pasamos con su siguiente indice anclado.
 class MainIndex:
@@ -22,8 +23,22 @@ class MainIndex:
 
         self.attribute_type = self.bin_manager.get_type_att(self.table, self.attribute)
 
+
+        # size del keyhandler para las estructuras de datos.
+        records_table = self.bin_manager.load_records_as_objects(table_name)
+
+        if records_table:
+            size_keyhandler = np.max([
+                sys.getsizeof(record.to_dict()[atributte_name.lower()])
+                for record
+                in records_table])
+        else:
+            # Un valor de default, por el momento no se está insertando.
+            size_keyhandler = 20
+
+        print("Max size a utilizar: ", size_keyhandler)
+
         if not os.path.exists(self.bin_path_index):
-            records_table = self.bin_manager.load_records_as_objects(table_name)
 
             if typeIndex != "RTREE":
                 with open(self.bin_path_index, "wb") as f:
@@ -33,12 +48,14 @@ class MainIndex:
             self.Index = GetIndex[typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
                                              records=records_table,
                                              is_create_bin=False,
-                                             data_name = self.bin_path_table_index)
+                                             data_name = self.bin_path_table_index,
+                                             size_kh = size_keyhandler)
 
         else:
             self.Index = GetIndex[typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
                                              is_create_bin=True,
-                                             data_name = self.bin_path_table_index)
+                                             data_name = self.bin_path_table_index,
+                                             size_kh = size_keyhandler)
 
     def insert(self, key, record):
         self.Index.insert(key, record)

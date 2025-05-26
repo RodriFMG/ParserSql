@@ -15,7 +15,9 @@ class VisitorExecutor:
         self.conection = conn
 
         #Agregado
-        self.bin_manager = BinStorageManager()
+        self.bin_manager = BinStorageManager(
+            pg_conn=self.conection
+        )
 
         # Crear la extensión de gist en la DB en caso no se tenga creada
         cursor = self.conection.cursor()
@@ -41,6 +43,7 @@ class VisitorExecutor:
 
 
         ################## INDEXAR #######################
+        QueryIndex = MainIndex
 
         print("\nResultado del SELECT:")
         for r in selected_rows:
@@ -174,8 +177,11 @@ class VisitorExecutor:
             header.append({
                 "name": name.lower(),
                 "type": full_type,
-                "indexes": [index.lower()] if index else []
+
+                # Para que el indice por default sea BTREE
+                "indexes": [index.lower()] if index else "avl"
             })
+
 
         self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
 
@@ -183,12 +189,14 @@ class VisitorExecutor:
         att_index = {}
 
         for att_content in stmt.columns:
-            if att_content[3] is not None:
 
-                if att_content[3] not in att_index:
-                    att_index[att_content[3]] = []
+            # Declarar indice por default el BTREE
+            att_content[3] = att_content[3] or "AVL"
 
-                att_index[att_content[3]].append(att_content[0])
+            if att_content[3] not in att_index:
+                att_index[att_content[3]] = []
+
+            att_index[att_content[3]].append(att_content[0])
 
         # Añadiendo los indices
 
@@ -202,7 +210,7 @@ class VisitorExecutor:
             for attr in att_index[index]:
 
                 if index == "AVL" or index == "BTREE" or index == "RTREE":
-                    IndexFile = MainIndex(stmt.name, attr, index, self.conection)
+                    _ = MainIndex(stmt.name, attr, index, self.conection)
                     continue
 
                 index_name = f"{stmt.name.lower()}_{index.lower()}_{attr.lower()}_idx"
@@ -243,7 +251,6 @@ class VisitorExecutor:
         keys = list(csv_content[0].keys())
         values = [list(row.values()) for row in csv_content]
 
-
         #### Creando la tabla ####
 
         # Crear la tabla con columnas tipo TEXT por defecto
@@ -262,23 +269,27 @@ class VisitorExecutor:
         for RowToInser in values:
             cursor.execute(insert_query, RowToInser)
 
-        #### Insertando el indicd ####
+        #### Creando los indices ####
 
-        # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
-        if stmt.index_type not in ["AVL", "HASH", "SEQ", "ISAM"]:
+        for col in keys:
 
-            intex_to_aplicar = stmt.index_type
+            to_indexar = "AVL"
+            if col == stmt.index_field:
+                to_indexar = stmt.index_type or to_indexar
 
-            index_name = f"{stmt.name.lower()}_{intex_to_aplicar.lower()}_{stmt.index_field.lower()}_idx"
 
-            index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
-                name=sql.Identifier(index_name),
-                table=sql.Identifier(stmt.name.lower()),
-                idx=sql.SQL(intex_to_aplicar.lower()),
-                attribute=sql.Identifier(stmt.index_field.lower())
-            )
+            if to_indexar in ["BTREE", "HASH"]:
+                index_name = f"{stmt.name.lower()}_{to_indexar.lower()}_{stmt.index_field.lower()}_idx"
 
-            cursor.execute(index_query)
+                index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
+                    name=sql.Identifier(index_name),
+                    table=sql.Identifier(stmt.name.lower()),
+                    idx=sql.SQL(to_indexar.lower()),
+                    attribute=sql.Identifier(stmt.index_field.lower())
+                )
+
+                cursor.execute(index_query)
+
 
         header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
         self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
@@ -300,7 +311,8 @@ class VisitorExecutor:
             if col.lower() not in total_atributos:
                 raise ValueError(f"No existe el atributo: {col} en la tabla {stmt.table}")
 
-        # Aplicar índices nativos de Python
+
+        # Aplicar índices nativos de Python ( Quitar el BTREE o HASH si se quiere agregar en postgres )
         if stmt.index_type in ["AVL", "HASH", "SEQ", "ISAM", "BTREE", "RTREE"]:
             for att in stmt.list_atributos:
                 if stmt.index_type in ["AVL", "BTREE", "RTREE"]:
@@ -326,6 +338,7 @@ class VisitorExecutor:
             idx=sql.SQL(stmt.index_type.lower()),
             attributes=sql.SQL(', ').join(sql.Identifier(col.lower()) for col in stmt.list_atributos)
         )
+
         cursor.execute(index_query)
         self.conection.commit()
         cursor.close()
