@@ -196,19 +196,28 @@ class BTreeIndex:
             else:
                 raise IOError("Archivo de nodos corrupto o incompleto")
 
+    # Devuelve el tamaño de un nodo hoja en bytes.
+    # Se calcula como el tamaño del encabezado más el tamaño de cada par (clave, puntero a datos),
+    # multiplicado por la cantidad máxima de claves (order - 1).
     def leaf_node_size(self):
         key_size = self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4
         return LeafNode.HEADER_SIZE + (key_size + 8) * (self.order - 1)
 
+
+    # Devuelve el tamaño de un nodo interno en bytes.
+    # Un nodo interno guarda 'order' punteros a hijos y 'order - 1' claves.
     def internal_node_size(self):
         key_size = self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4
         return InternalNode.HEADER_SIZE + (self.order * 8) + ((self.order - 1) * key_size)
 
+    # Escribe un nodo en una posición específica del archivo de nodos.
     def write_node(self, node, pos):
         with open(self.node_file, 'r+b') as f:
             f.seek(pos)
             f.write(node.to_bytes(self.order))
 
+    # Lee un nodo desde una posición específica del archivo.
+    # Determina si es hoja o interno leyendo el primer byte.
     def read_node(self, pos):
         with open(self.node_file, 'rb') as f:
             f.seek(pos)
@@ -233,6 +242,8 @@ class BTreeIndex:
             else:
                 return InternalNode.from_bytes(data, self.order, self.key_handler)
 
+    # Agrega un nodo nuevo al final del archivo.
+    # Actualiza el encabezado del archivo con el nuevo número de registros.
     def append_node(self, node):
         if node.is_leaf:
             node_size = self.leaf_node_size()
@@ -254,6 +265,7 @@ class BTreeIndex:
             f.write(struct.pack(self.HEADER_FORMAT, self.root_pos, self.order, self.record_count))
         return pos
 
+    # Inserta un nuevo registro: guarda los datos en archivo y llama a insert().
     def insert_record(self, key, record: RecordGeneric):
         if key is None:
             key = getattr(record, record._attributes[self.key_attr_index])
@@ -263,8 +275,11 @@ class BTreeIndex:
         self.record_count += 1
         self.insert(key, pos)
 
-    def insert(self, key, data_pos):
 
+    # Inserta una clave en el árbol.
+    # Si el árbol está vacío, crea una hoja como raíz.
+    # Si hay división, crea una nueva raíz.
+    def insert(self, key, data_pos):
         if self.root_pos == -1:
             leaf = LeafNode(-1, 1, -1, [[key, data_pos]], self.key_handler)
             self.root_pos = self.append_node(leaf)
@@ -280,6 +295,7 @@ class BTreeIndex:
                 f.seek(0)
                 f.write(struct.pack('q', self.root_pos))
 
+    # Inserción recursiva. Si se divide el nodo, devuelve clave-promoción y nueva posición.
     def _insert_recursive(self, pos, key, data_pos):
         node = self.read_node(pos)
 
@@ -350,11 +366,13 @@ class BTreeIndex:
                 print(f"{indent}  Key[{i}]: {node.keys[i]}")
             self.print_tree(node.children[node.n_keys], nivel + 1)
 
+    # Busca una clave en el árbol. Devuelve todas las ocurrencias.
     def search(self, key):
         if self.root_pos == -1:
             return []
         return self._search_in_leaf(self.root_pos, key)
 
+    # Búsqueda recursiva hasta llegar a una hoja.
     def _search_in_leaf(self, pos, key):
         node = self.read_node(pos)
         if node.is_leaf:
@@ -365,6 +383,7 @@ class BTreeIndex:
                 i += 1
             return self._search_in_leaf(node.children[i], key)
 
+    # Búsqueda de claves entre start_key y end_key (inclusive).
     def range_search(self, start_key, end_key):
         if self.root_pos == -1:
             return []
@@ -372,6 +391,7 @@ class BTreeIndex:
         self._range_collect(self.root_pos, start_key, end_key, results)
         return results
 
+    # Recolecta recursivamente todos los pares dentro del rango en hojas consecutivas.
     def _range_collect(self, pos, start_key, end_key, results):
         node = self.read_node(pos)
         if node.is_leaf:
@@ -386,4 +406,131 @@ class BTreeIndex:
             while i < node.n_keys and self.key_handler.compare(start_key, node.keys[i]) > 0:
                 i += 1
             self._range_collect(node.children[i], start_key, end_key, results)
+        
+    # Elimina una clave del árbol.
+    def delete(self, key):
+        if self.root_pos == -1:
+            return False
+        changed, shrink, new_root = self._delete_recursive(self.root_pos, key)
+        if shrink and new_root is not None:
+            self.root_pos = new_root
+            with open(self.node_file, 'r+b') as f:
+                f.seek(0)
+                f.write(struct.pack('q', self.root_pos))
+        return changed
+
+    # Eliminación recursiva. Puede provocar redistribución o fusión de nodos.
+    def _delete_recursive(self, pos, key):
+        node = self.read_node(pos)
+        if node.is_leaf:
+            original_len = len(node.values)
+            node.values = [pair for pair in node.values if self.key_handler.compare(pair[0], key) != 0]
+            node.n_keys = len(node.values)
+            self.write_node(node, pos)
+            changed = original_len != node.n_keys
+            new_min_key = node.values[0][0] if node.n_keys > 0 else None
+            return changed, node.n_keys == 0, new_min_key
+
+        i = 0
+        while i < node.n_keys and self.key_handler.compare(key, node.keys[i]) >= 0:
+            i += 1
+        changed, shrink, new_min_key = self._delete_recursive(node.children[i], key)
+        if not changed:
+            return False, False, None
+        if new_min_key is not None and i < node.n_keys:
+            if self.key_handler.compare(node.keys[i], new_min_key) != 0:
+                node.keys[i] = new_min_key
+        if shrink:
+            shrink, new_child = self._redistribute_or_merge(node, pos, i)
+            if shrink:
+                return True, True, new_child
+        self.write_node(node, pos)
+        return True, False, None
+
+    # Intenta redistribuir o fusionar un hijo que se quedó con pocos elementos.
+    def _redistribute_or_merge(self, node, pos, i):
+        left_idx = i - 1
+        right_idx = i + 1
+        left = self.read_node(node.children[left_idx]) if i > 0 else None
+        right = self.read_node(node.children[right_idx]) if i + 1 <= node.n_keys else None
+        target = self.read_node(node.children[i])
+        if right and right.n_keys > (self.order - 1) // 2:
+            self._redistribute_from_right(node, target, right, i)
+            self.write_node(target, node.children[i])
+            self.write_node(right, node.children[i + 1])
+            return False, None
+        elif left and left.n_keys > (self.order - 1) // 2:
+            self._redistribute_from_left(node, target, left, i)
+            self.write_node(target, node.children[i])
+            self.write_node(left, node.children[i - 1])
+            return False, None
+        else:
+            if right:
+                self._merge_with_right(node, target, right, i)
+                self.write_node(target, node.children[i])
+                node.keys.pop(i)
+                node.children.pop(i + 1)
+                node.n_keys -= 1
+            elif left:
+                self._merge_with_left(node, target, left, i)
+                self.write_node(left, node.children[i - 1])
+                node.keys.pop(i - 1)
+                node.children.pop(i)
+                node.n_keys -= 1
+            self.write_node(node, pos)
+            if node.n_keys == 0:
+                return True, node.children[0]
+            return False, None
+
+    # Redistribuye desde el hermano derecho.
+    def _redistribute_from_right(self, parent, target, right, i):
+        if target.is_leaf:
+            target.values.append(right.values.pop(0))
+            target.n_keys += 1
+            right.n_keys -= 1
+            parent.keys[i] = right.values[0][0]
+        else:
+            target.keys.append(parent.keys[i])
+            parent.keys[i] = right.keys.pop(0)
+            target.children.append(right.children.pop(0))
+            target.n_keys += 1
+            right.n_keys -= 1
+
+    # Redistribuye desde el hermano izquierdo.
+    def _redistribute_from_left(self, parent, target, left, i):
+        if target.is_leaf:
+            target.values.insert(0, left.values.pop())
+            target.n_keys += 1
+            left.n_keys -= 1
+            parent.keys[i - 1] = target.values[0][0]
+        else:
+            target.keys.insert(0, parent.keys[i - 1])
+            parent.keys[i - 1] = left.keys.pop()
+            target.children.insert(0, left.children.pop())
+            target.n_keys += 1
+            left.n_keys -= 1
+
+    # Fusiona con el hermano derecho.
+    def _merge_with_right(self, parent, target, right, i):
+        if target.is_leaf:
+            target.values.extend(right.values)
+            target.n_keys = len(target.values)
+            target.next_leaf = right.next_leaf
+        else:
+            target.keys.append(parent.keys[i])
+            target.keys.extend(right.keys)
+            target.children.extend(right.children)
+            target.n_keys = len(target.keys)
+
+    # Fusiona con el hermano izquierdo.
+    def _merge_with_left(self, parent, target, left, i):
+        if target.is_leaf:
+            left.values.extend(target.values)
+            left.n_keys = len(left.values)
+            left.next_leaf = target.next_leaf
+        else:
+            left.keys.append(parent.keys[i - 1])
+            left.keys.extend(target.keys)
+            left.children.extend(target.children)
+            left.n_keys = len(left.keys)
 
