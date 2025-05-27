@@ -1,3 +1,6 @@
-CREATE INDEX abcd ON Tienda (id);
 
-SELECT id FROM tienda WHERE melon = 10;
+CREATE TABLE hashtabletest(
+    idx SERIAL PRIMARY KEY INDEX HASH,
+    PE INT INDEX HASH,
+    PPEPE INT INDEX HASH
+);

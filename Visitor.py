@@ -6,7 +6,7 @@ from Token import Type
 from bin_data.BinaryManager import BinStorageManager
 from MainIndex import MainIndex
 from datetime import datetime
-
+from bin_data.Record import RecordGeneric
 
 
 class VisitorExecutor:
@@ -105,6 +105,59 @@ class VisitorExecutor:
 
         ################## INDEXAR #######################
 
+        atts_table = self.bin_manager.get_atts_table(stmt.table)
+
+        if "id" in atts_table:
+            select_att_to_insert = "id"
+            get_index_id = self.bin_manager.get_indexs_att(stmt.table, "id")
+            Index = MainIndex(stmt.table, "id", get_index_id[0], self.conection)
+        else:
+
+            select_att_to_insert = atts_table[0]
+            get_index_att = self.bin_manager.get_indexs_att(stmt.table, select_att_to_insert)
+            Index = MainIndex(stmt.table, select_att_to_insert, get_index_att[0], self.conection)
+
+        records_to_insert = []
+        for record in stmt.values:
+            record_eval = []
+
+            # En teoría no debería haber ningun IdExp.
+            for op in record:
+                record_eval.append(self.eval_condition(op, row=None))
+
+            records_to_insert.append(record_eval)
+
+        record_generic_list = []
+        for record_to_generic in records_to_insert:
+            dic_record = dict(zip(stmt.atributos, record_to_generic))
+            record_generic = RecordGeneric(atts_table)
+
+            for att_name in stmt.atributos:
+                setattr(record_generic, att_name.lower(), dic_record.get(att_name, None))
+
+            record_generic_list.append(record_generic)
+
+        for insert_record in record_generic_list:
+
+            att_idx_insert = insert_record.to_dict()[select_att_to_insert.lower()]
+            if not att_idx_insert:
+
+                type_att = self.bin_manager.get_type_att(stmt.table, select_att_to_insert)
+
+                if type_att.lower() == "serial":
+                    last_row_table = self.bin_manager.get_last_row_by_attribute(stmt.table, select_att_to_insert)
+                    att_idx_insert = last_row_table[select_att_to_insert] + 1
+
+                    setattr(insert_record, select_att_to_insert.lower(), att_idx_insert)
+
+                else:
+                    raise ValueError("Error, key o atributo: None, al insertar y además no es tipo serial!")
+
+
+            Index.insert(
+                key=att_idx_insert,
+                record=insert_record
+            )
 
         # Guardar los cambios realizados
         self.conection.commit()
@@ -207,13 +260,13 @@ class VisitorExecutor:
         for index in att_index:
 
             # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
-            if index in ["HASH", "SEQ", "ISAM"]:
+            if index in ["SEQ", "ISAM"]:
                 continue
 
             index_to_aplicar = index
             for attr in att_index[index]:
 
-                if index == "AVL" or index == "BTREE" or index == "RTREE":
+                if index == "AVL" or index == "BTREE" or index == "RTREE" or index == "HASH":
                     _ = MainIndex(stmt.name, attr, index, self.conection)
                     continue
 
@@ -319,7 +372,7 @@ class VisitorExecutor:
         # Aplicar índices nativos de Python ( Quitar el BTREE o HASH si se quiere agregar en postgres )
         if stmt.index_type in ["AVL", "HASH", "SEQ", "ISAM", "BTREE", "RTREE"]:
             for att in stmt.list_atributos:
-                if stmt.index_type in ["AVL", "BTREE", "RTREE"]:
+                if stmt.index_type in ["AVL", "BTREE", "RTREE", "HASH"]:
                     _ = MainIndex(stmt.table, att, stmt.index_type, self.conection)
 
                 #Actualizar el meta.json en la tabla correcta

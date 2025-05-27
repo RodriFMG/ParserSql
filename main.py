@@ -57,11 +57,17 @@ def ver_tokens(code):
             break
 
 
-def CreateIndexOfPostgresToPython(table_name, index_map, pg_conn):
+def CreateIndexOfPostgresToPython(table_name, index_map, pg_conn, columns, default_index = "AVL"):
 
-    for att in index_map.keys():
-        for index in index_map[att]:
-            _ = MainIndex(table_name, att, index, pg_conn)
+    atts_table = [att[0] for att in columns]
+
+    for att in atts_table:
+
+        if att in index_map.keys():
+            for index in index_map[att]:
+                _ = MainIndex(table_name, att, index, pg_conn)
+        else:
+            _ = MainIndex(table_name, att, default_index, pg_conn)
 
 
 if __name__ == "__main__":
@@ -104,8 +110,9 @@ if __name__ == "__main__":
             print(f"[BIN] Tabla '{table}' desactualizada. Guardando nueva versión.")
             bin_manager.save_table(table, db[table])
             print("tabla actual: ", table)
-            _, index_map = bin_manager._get_index_postgres(table)
-            CreateIndexOfPostgresToPython(table, index_map, conn)
+            columns, index_map = bin_manager._get_index_postgres(table)
+            CreateIndexOfPostgresToPython(table, index_map, conn, columns,
+                                          default_index="AVL")
 
     # Ejecutar código
     executor = VisitorExecutor(db, conn)

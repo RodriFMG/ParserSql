@@ -96,6 +96,8 @@ class LeafNode:
         for i in range(order - 1):
             if i < self.n_keys:
                 key = self.key_handler.serialize(self.values[i][0])
+
+                print("quefue: ", self.values[i][1])
                 pos = struct.pack('q', self.values[i][1])
             else:
                 # Rellenar con clave "vacía" del tipo correcto
@@ -308,6 +310,7 @@ class BTreeIndex:
         self.insert(key, pos)
 
     def insert(self, key, data_pos):
+
         if self.root_pos == -1:
             leaf = LeafNode(-1, 1, -1, [[key, data_pos]], self.key_handler)
             self.root_pos = self.append_node(leaf)

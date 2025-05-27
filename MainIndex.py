@@ -46,7 +46,7 @@ class MainIndex:
 
         if not os.path.exists(self.bin_path_index):
 
-            if typeIndex != "RTREE":
+            if typeIndex not in ["RTREE", "HASH"]:
                 with open(self.bin_path_index, "wb") as f:
                     pass
 

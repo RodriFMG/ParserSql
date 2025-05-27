@@ -45,6 +45,54 @@ class BinStorageManager:
             print(f"Error al cargar el tipo del atributo: {e}")
             return None
 
+    def get_last_row_by_attribute(self, table_name, attribute_name):
+
+        if not self.pg_conn:
+            raise ValueError("Conexión PostgreSQL no proporcionada.")
+
+        try:
+            cursor = self.pg_conn.cursor()
+
+            # Preparar consulta segura con placeholders
+            query = f"""
+                SELECT * FROM {table_name}
+                ORDER BY {attribute_name} DESC
+                LIMIT 1;
+            """
+            cursor.execute(query)
+            row = cursor.fetchone()
+            colnames = [desc[0] for desc in cursor.description]
+
+            cursor.close()
+
+            if row:
+                return dict(zip(colnames, row))
+            else:
+                return None
+
+        except Exception as e:
+            print(f"Error al obtener la última fila de la tabla '{table_name}': {e}")
+            return None
+
+    def get_atts_table(self, table_name):
+
+        try:
+            with open(self.meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+
+            table_name = table_name.lower()
+
+            if table_name not in meta:
+                raise ValueError(f"La tabla '{table_name}' no se encuentra en el archivo meta.json.")
+
+            atts = [column["name"] for column in meta[table_name]["columns"]]
+
+            return atts
+
+        except Exception as e:
+            print(f"Error al cargar el tipo del atributo: {e}")
+            return None
+
     def get_indexs_att(self, table_name, attribute_name):
         try:
             with open(self.meta_file, "r", encoding="utf-8") as f:

@@ -3,7 +3,7 @@ from .Rtree import RTreeIndex
 from .Sequential import SequentialIndex
 from .AVL import AVLIndex
 from .ISAM import ISAMIndex
-from .Hash import HashIndex
+from IndexsDir.Hash.ExtendibleHashing import ExtendibleHashingIndex
 
 GetIndex = {
     "BTREE":  BTreeIndex,
@@ -11,5 +11,5 @@ GetIndex = {
     "SEQ": SequentialIndex,
     "AVL": AVLIndex,
     "ISAM": ISAMIndex,
-    "HASH": HashIndex
+    "HASH": ExtendibleHashingIndex
 }
