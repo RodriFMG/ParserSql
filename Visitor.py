@@ -161,6 +161,17 @@ class VisitorExecutor:
                 key=att_idx_insert,
                 record=insert_record
             )
+            # Insertar también en PostgreSQL
+            insert_dict = insert_record.to_dict()
+            column_names = list(insert_dict.keys())
+            column_values = [insert_dict[col] for col in column_names]
+
+            insert_query_pg = sql.SQL("INSERT INTO {table} ({cols}) VALUES ({vals})").format(
+                table=sql.Identifier(table_name.lower()),
+                cols=sql.SQL(', ').join(map(sql.Identifier, column_names)),
+                vals=sql.SQL(', ').join(sql.Placeholder() * len(column_names))
+            )
+            cursor.execute(insert_query_pg, column_values)
 
         self.db[table_name].extend([r.to_dict() for r in record_generic_list])
         self.bin_manager.save_table(table_name, self.db[table_name])

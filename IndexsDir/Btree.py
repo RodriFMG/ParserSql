@@ -51,7 +51,6 @@ class LeafNode:
         for i in range(order - 1):
             if i < self.n_keys:
                 key = self.key_handler.serialize(self.values[i][0])
-                print("quefue: ", self.values[i][1])
                 pos = struct.pack('q', self.values[i][1])
             else:
                 # Rellenar con clave "vacía" del tipo correcto
@@ -261,7 +260,6 @@ class BTreeIndex:
         path = os.path.join(self.data_file, 'data.databin')
         with open(self.data_file, 'ab') as f:
             f.write(record.to_bytes())
-        print(f"📝 Se escribió en {path}: {record.to_dict()}")
         pos = self.record_count
         self.record_count += 1
         self.insert(key, pos)
