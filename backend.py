@@ -6,6 +6,25 @@ app = Flask(__name__)
 def validar_identificador(name):
     return name.isidentifier()
 
+
+# "ejemplo http://localhost:5000/table/users"
+@app.route('/table', methods=['POST'])
+def get_all(table_name, atributo):
+    try:
+        data = request.get_json()
+        
+        executor = ExecuteSQLParser(data)
+        
+
+        if not executor:
+            return jsonify({"message": "No records found"}), 404
+
+        return jsonify(executor), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 # "ejemplo http://localhost:5000/table/users"
 @app.route('/table/<string:table_name>', methods=['GET'])
 def get_all(table_name, atributo):
