@@ -409,11 +409,15 @@ class BTreeIndex:
         
     # Elimina una clave del árbol.
     def delete(self, key):
+        # Si el árbol está vacío, no hay nada que eliminar
         if self.root_pos == -1:
             return False
+        # Llamada recursiva para eliminar la clave desde la raíz
         changed, shrink, new_root = self._delete_recursive(self.root_pos, key)
+        # Si tras eliminar la raíz quedó vacía y hay una nueva raíz (altura disminuye)
         if shrink and new_root is not None:
             self.root_pos = new_root
+            #  Actualizamos la raiz
             with open(self.node_file, 'r+b') as f:
                 f.seek(0)
                 f.write(struct.pack('q', self.root_pos))
@@ -421,7 +425,10 @@ class BTreeIndex:
 
     # Eliminación recursiva. Puede provocar redistribución o fusión de nodos.
     def _delete_recursive(self, pos, key):
+        # Lee el nodo en la posición dada
         node = self.read_node(pos)
+        
+        # Caso nodo hoja
         if node.is_leaf:
             original_len = len(node.values)
             node.values = [pair for pair in node.values if self.key_handler.compare(pair[0], key) != 0]
@@ -431,15 +438,20 @@ class BTreeIndex:
             new_min_key = node.values[0][0] if node.n_keys > 0 else None
             return changed, node.n_keys == 0, new_min_key
 
+        # Caso nodo interno
+        # Busca el hijo correcto donde buscar la clave
         i = 0
         while i < node.n_keys and self.key_handler.compare(key, node.keys[i]) >= 0:
             i += 1
         changed, shrink, new_min_key = self._delete_recursive(node.children[i], key)
         if not changed:
             return False, False, None
+        
+        # Si la clave mínima del hijo cambió, actualiza la clave separadora en el nodo interno
         if new_min_key is not None and i < node.n_keys:
             if self.key_handler.compare(node.keys[i], new_min_key) != 0:
                 node.keys[i] = new_min_key
+         # Si el hijo quedó con pocas claves, intenta redistribuir o fusionar con hermanos
         if shrink:
             shrink, new_child = self._redistribute_or_merge(node, pos, i)
             if shrink:
@@ -449,8 +461,10 @@ class BTreeIndex:
 
     # Intenta redistribuir o fusionar un hijo que se quedó con pocos elementos.
     def _redistribute_or_merge(self, node, pos, i):
+        # Índices de hermanos izquierdo y derecho
         left_idx = i - 1
         right_idx = i + 1
+        # Lee hermanos y nodo objetivo (que tiene pocas claves)
         left = self.read_node(node.children[left_idx]) if i > 0 else None
         right = self.read_node(node.children[right_idx]) if i + 1 <= node.n_keys else None
         target = self.read_node(node.children[i])
@@ -559,7 +573,11 @@ class BTreeIndex:
             new_min_key = node.values[0][0] if node.n_keys > 0 else None
             return changed, node.n_keys == 0, new_min_key
 
+        # Inicializa el índice i para buscar el hijo correcto donde está o debería estar la clave
+
         i = 0
+        # Busca el índice i del hijo donde debe buscar la clave 'key'
+
         while i < node.n_keys and self.key_handler.compare(key, node.keys[i]) >= 0:
             i += 1
 
@@ -573,6 +591,7 @@ class BTreeIndex:
             if self.key_handler.compare(node.keys[i], new_min_key) != 0:
                 node.keys[i] = new_min_key
 
+        # Si la clave mínima del hijo cambió, actualiza la clave separadora en el nodo actual
         if shrink:
             shrink, new_child = self._redistribute_or_merge(node, pos, i)
             if shrink:
@@ -581,6 +600,7 @@ class BTreeIndex:
         self.write_node(node, pos)
         return True, False, None
 
+    #target es el nodo q esta desequilbrado que tiene claves menos que las que deberia tener.
     def _redistribute_or_merge(self, node, pos, i):
         left_idx = i - 1
         right_idx = i + 1
