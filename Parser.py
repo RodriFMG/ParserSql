@@ -119,18 +119,15 @@ class ParserSQL:
                 raise ValueError("Se esperaba 'VALUES' después del nombre de la tabla")
 
             values = []
-            while True:
 
+            while True:
                 if not self.match(Type.LPAREN):
                     raise ValueError("Se esperaba un '(' en el insert")
 
                 RowToInsert = []
 
                 while True:
-
-                    Exp = self.ParseLogicExp()
-                    RowToInsert.append(Exp)
-
+                    RowToInsert.append(self.ParseLogicExp())
                     if not self.match(Type.COMA):
                         break
 
@@ -139,7 +136,12 @@ class ParserSQL:
 
                 values.append(RowToInsert)
 
-                if not self.match(Type.COMA):
+                # Mira hacia adelante: si lo siguiente es ',', espera otro '(' después
+                if self.check(Type.COMA):
+                    self.advance()
+                    if not self.check(Type.LPAREN):
+                        raise ValueError("Se esperaba '(' después de ',' en múltiples INSERTS")
+                else:
                     break
 
             return InsertStatement(table, values, atributos)
@@ -173,21 +175,23 @@ class ParserSQL:
                     if not self.match(Type.STRING):
                         raise ValueError("Se esperaba la ruta del archivo entre comillas")
                     filepath = self.previous.text
-                    if not self.match(Type.USING):
-                        raise ValueError("Se esperaba 'USING'")
-                    if not self.match(Type.INDEX):
-                        raise ValueError("Se esperaba 'INDEX'")
-                    if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE) \
-                            and not self.match(Type.HASH) and not self.match(Type.AVL) and not self.match(Type.ISAM):
-                        raise ValueError(f"No existe el indice: {self.current.text}")
-                    index_type = self.previous.text
-                    if not self.match(Type.LPAREN):
-                        raise ValueError("Se esperaba '(' después del tipo de índice")
-                    if not self.match(Type.STRING):
-                        raise ValueError("Se esperaba el campo índice entre comillas")
-                    index_field = self.previous.text
-                    if not self.match(Type.RPAREN):
-                        raise ValueError("Se esperaba ')' para cerrar índice")
+                    index_type = None
+                    index_field = None
+                    if self.match(Type.USING):
+                        if not self.match(Type.INDEX):
+                            raise ValueError("Se esperaba 'INDEX'")
+                        if not self.match(Type.SEQ) and not self.match(Type.BTREE) and not self.match(Type.RTREE) \
+                                and not self.match(Type.HASH) and not self.match(Type.AVL) and not self.match(
+                            Type.ISAM):
+                            raise ValueError(f"No existe el indice: {self.current.text}")
+                        index_type = self.previous.text
+                        if not self.match(Type.LPAREN):
+                            raise ValueError("Se esperaba '(' después del tipo de índice")
+                        if not self.match(Type.STRING):
+                            raise ValueError("Se esperaba el campo índice entre comillas")
+                        index_field = self.previous.text
+                        if not self.match(Type.RPAREN):
+                            raise ValueError("Se esperaba ')' para cerrar índice")
                     return CreateTableFromFile(name, filepath, index_type, index_field)
 
                 else:

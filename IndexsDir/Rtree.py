@@ -8,7 +8,7 @@ class RTreeIndex:
                  is_create_bin=False, data_name=None, records=None, order=10):
 
         atribute_type = atribute_type.lower()
-
+        self.atribute_index = atribute_index.lower()
         if atribute_type not in ["int", "serial", "float"]:
 
             # Si es array, validamos su tipo interno
@@ -23,7 +23,6 @@ class RTreeIndex:
                 raise ValueError("El RTree solo funciona con tipo enteros, float o arrays de estos.")
 
         self.filename = file_name
-        self.atribute_index = atribute_index
         self.atribute_type = atribute_type
 
         self.dir_store_rtree = os.path.join(data_name, f"{self.atribute_index}")
@@ -62,8 +61,8 @@ class RTreeIndex:
             return (float(key), float(key), float(key), float(key))
         raise ValueError(f"Clave no válida para RTree: {key}")
 
-    def insert(self, record_id, record):
-        attr_val = record[self.atribute_index]
+    def insert_record(self, record_id, record):
+        attr_val = getattr(record, self.atribute_index)
         bounds = self._get_bounds_from_key(attr_val)
         self.idx.insert(record_id, bounds)
 

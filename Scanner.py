@@ -12,7 +12,6 @@ class Scanner:
     def next_token(self):
         while self.current < len(self.code) and is_space_white(self.code[self.current]):
             self.current += 1
-
         if self.current >= len(self.code):
             return Token(Type.EOF)
 
@@ -97,13 +96,14 @@ class Scanner:
             else:
                 return Token(Type.NUMBER, self.code[self.first:self.current])
 
-        #Strings
-        elif c == '"':
+        # Strings con comillas simples o dobles
+        elif c == '"' or c == "'":
+            quote_type = c  # guarda si fue " o '
             start = self.current
-            while self.current < len(self.code) and self.code[self.current] != '"':
+            while self.current < len(self.code) and self.code[self.current] != quote_type:
                 self.current += 1
             text = self.code[start:self.current]
-            self.current += 1
+            self.current += 1  # Saltar la comilla de cierre
             return Token(Type.STRING, text)
 
         #Simbolos

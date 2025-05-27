@@ -53,6 +53,7 @@ class AVLIndex:
     def __init__(self, atribute_index, atribute_type, file_name, data_name = None,
                 size_kh = None, records = None, is_create_bin = False):
 
+            self.atribute_index = atribute_index.lower()
             self.key_handler = KeyHandler(tipo=atribute_type, size = size_kh)
             self.filename = file_name
             self.record_size = (self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4) + 16
@@ -65,7 +66,7 @@ class AVLIndex:
                 # records[0] = cabeceras
                 if len(records) > 1:
                     for i, record in enumerate(records):
-                        self.insert(record.to_dict()[atribute_index.lower()], i)
+                        self.insert_record(record.to_dict()[atribute_index.lower()], i)
 
                 print(f"Índice AVL creado exitosamente en {self.filename}")
 
@@ -139,7 +140,12 @@ class AVLIndex:
 
         return pos
 
-    def insert(self, key, pos_dato):
+    def insert_record(self, key, record):
+        if not hasattr(record, "_pos"):
+            raise ValueError(
+                "AVLIndex necesita la posición del registro en el archivo binario. Asigna record._pos antes de insertarlo.")
+
+        pos_dato = record._pos  #Se asigna desde record
         with open(self.filename, "r+b") as file:
             root = self.get_root()
             new_root = self._insert_rec(file, root, key, pos_dato)

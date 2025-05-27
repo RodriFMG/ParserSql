@@ -50,16 +50,15 @@ class ExtendibleHashingIndex:
 
         #BUCKETS_PATH = file_name + atribute_index
 
-        self.init_files()
-
         if not is_create_bin:
-
+            self.init_files()
             if len(records) > 1:
                 for i, record in enumerate(records):
                     key = record.to_dict()[self.atribute_index]
+                    record._pos = i
                     # print("//" * 20)
                     # print(f"🔑 Insertando clave: {key} (pos: {i})")
-                    self.insert(key, i)
+                    self.insert_record(key, record)
                     #self.print_ll()  // print info extendible
                     # print("//" * 20)
 
@@ -113,7 +112,13 @@ class ExtendibleHashingIndex:
             f.seek(offset)
             f.write(bucket.pack())
 
-    def insert(self, key, pos):
+    def insert_record(self, key, record):
+        # Extraer la posición desde record si es un objeto
+        if hasattr(record, "_pos"):
+            pos = record._pos
+        else:
+            pos = record  # En caso se esté pasando solo la posición (modo legacy o bulk insert)
+
         key_bits = self.hash_key(key)
         index, offset = self.get_bucket_offset(key_bits)
         bucket = self.read_bucket(offset)
@@ -141,15 +146,13 @@ class ExtendibleHashingIndex:
                 bucket.next_bucket = new_offset
                 self.write_bucket(bucket, offset)  # actualizar puntero
                 self.write_bucket(new_bucket, new_offset)
-                #print(f"[🧩] Clave {key} insertada en bucket de overflow offset={new_offset}")
             else:
                 print("[⛔] Error: no se pudo insertar en nuevo bucket de overflow")
             return
 
         # Caso normal: intentar split
-        #print(f"[🔄] Bucket lleno en offset {offset}, intentando dividir...")
         self.split_bucket(index, offset, bucket)
-        self.insert(key, pos)  # Reintento tras split
+        self.insert_record(key, pos)  # Reintento tras split
 
     def split_bucket(self, index, offset, full_bucket):
         full_bucket.local_depth += 1

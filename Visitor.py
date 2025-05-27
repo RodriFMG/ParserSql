@@ -116,7 +116,7 @@ class VisitorExecutor:
 
             # En teoría no debería haber ningun IdExp.
             for op in record:
-                record_eval.append(self.eval_condition(op, row=None))
+                record_eval.append(self.eval_condition(op, table_name=None))
 
             records_to_insert.append(record_eval)
 
@@ -150,6 +150,9 @@ class VisitorExecutor:
 
                 else:
                     raise ValueError("Error, key o atributo: None, al insertar. Además no es tipo serial!")
+
+            insert_record._pos = len(self.db[table_name])
+
             Index.insert(
                 key=att_idx_insert,
                 record=insert_record
@@ -173,18 +176,6 @@ class VisitorExecutor:
         cursor.close()
 
         print(f"\nInserción realizada con éxito, se insertaron {len(stmt.values)} a {table_name}")
-
-    def visit_delete(self, stmt):
-
-        cursor = self.conection.cursor()
-        if stmt.table not in self.db:
-            raise ValueError(f"Tabla '{stmt.table}' no encontrada")
-
-        print("\nREPORTE DEL DELETE:")
-
-        ################## INDEXAR #######################
-
-        print("No se encontraron filas para eliminar. Consulta no ejecutada.")
 
     def visit_create(self, stmt):
 
@@ -347,36 +338,34 @@ class VisitorExecutor:
         for RowToInser in values:
             cursor.execute(insert_query, RowToInser)
 
+        header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
+        self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
+
+        if stmt.index_field and stmt.index_type in ["BTREE", "HASH"]:
+            index_name = f"csv_{stmt.name.lower()}_{stmt.index_type.lower()}_{stmt.index_field.lower()}_idx"
+
+            index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
+                name=sql.Identifier(index_name),
+                table=sql.Identifier(stmt.name.lower()),
+                idx=sql.SQL(stmt.index_type.lower()),
+                attribute=sql.Identifier(stmt.index_field.lower())
+            )
+
+            cursor.execute(index_query)
+
         #### Creando los indices ####
 
+        if stmt.index_field:
+            self.bin_manager.add_index_to_attribute(stmt.name, stmt.index_field, stmt.index_type)
+            _ = MainIndex(stmt.name, stmt.index_field, stmt.index_type, self.conection)
 
         for col in keys:
 
-            to_indexar = [self.default_index]
-            if stmt.index_field and col == stmt.index_field and self.default_index != stmt.index_type:
-                to_indexar = [stmt.index_type, self.default_index]
+            if stmt.index_field == self.default_index:
+                continue
 
-                # Insertar el indice en postgres solo si es el declarado en el CSV o ese indice existe en postgres.
-                if stmt.index_type in ["BTREE", "HASH"]:
-                    index_name = f"csv_{stmt.name.lower()}_{stmt.index_type.lower()}_{stmt.index_field.lower()}_idx"
-
-                    index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
-                        name=sql.Identifier(index_name),
-                        table=sql.Identifier(stmt.name.lower()),
-                        idx=sql.SQL(stmt.index_type.lower()),
-                        attribute=sql.Identifier(stmt.index_field.lower())
-                    )
-
-                    cursor.execute(index_query)
-
-            for indices_yo_aply in to_indexar:
-                self.bin_manager.add_index_to_attribute(stmt.name, col, indices_yo_aply)
-
-
-
-
-        header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
-        self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
+            self.bin_manager.add_index_to_attribute(stmt.name, col, self.default_index)
+            _ = MainIndex(stmt.name, col, self.default_index, self.conection)
 
         self.conection.commit()
         cursor.close()

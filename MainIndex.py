@@ -44,7 +44,8 @@ class MainIndex:
 
         print("Max size a utilizar: ", size_keyhandler)
 
-        if not os.path.exists(self.bin_path_index):
+        dir_store_hash_or_rtree = os.path.join(self.bin_path_table_index, f"{self.attribute}")
+        if not os.path.exists(self.bin_path_index) and not os.path.exists(dir_store_hash_or_rtree):
 
             if self.typeIndex not in ["RTREE", "HASH"]:
                 with open(self.bin_path_index, "wb") as f:
