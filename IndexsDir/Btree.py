@@ -387,3 +387,134 @@ class BTreeIndex:
                 i += 1
             self._range_collect(node.children[i], start_key, end_key, results)
 
+    # Eliminación
+    def delete(self, key):
+        if self.root_pos == -1:
+            return False
+        changed, shrink, new_root = self._delete_recursive(self.root_pos, key)
+        if shrink and new_root is not None:
+            self.root_pos = new_root
+            with open(self.node_file, 'r+b') as f:
+                f.seek(0)
+                f.write(struct.pack('q', self.root_pos))
+        return changed
+
+    def _delete_recursive(self, pos, key):
+        node = self.read_node(pos)
+
+        if node.is_leaf:
+            original_len = len(node.values)
+            node.values = [pair for pair in node.values if self.key_handler.compare(pair[0], key) != 0]
+            node.n_keys = len(node.values)
+            self.write_node(node, pos)
+
+            changed = original_len != node.n_keys
+            new_min_key = node.values[0][0] if node.n_keys > 0 else None
+            return changed, node.n_keys == 0, new_min_key
+
+        i = 0
+        while i < node.n_keys and self.key_handler.compare(key, node.keys[i]) >= 0:
+            i += 1
+
+        changed, shrink, new_min_key = self._delete_recursive(node.children[i], key)
+
+        if not changed:
+            return False, False, None
+
+        # Actualizar la clave separadora si es necesario
+        if new_min_key is not None and i < node.n_keys:
+            if self.key_handler.compare(node.keys[i], new_min_key) != 0:
+                node.keys[i] = new_min_key
+
+        if shrink:
+            shrink, new_child = self._redistribute_or_merge(node, pos, i)
+            if shrink:
+                return True, True, new_child
+
+        self.write_node(node, pos)
+        return True, False, None
+
+    def _redistribute_or_merge(self, node, pos, i):
+        left_idx = i - 1
+        right_idx = i + 1
+        left = self.read_node(node.children[left_idx]) if i > 0 else None
+        right = self.read_node(node.children[right_idx]) if i + 1 <= node.n_keys else None
+        target = self.read_node(node.children[i])
+
+        if right and right.n_keys > (self.order - 1) // 2:
+            self._redistribute_from_right(node, target, right, i)
+            self.write_node(target, node.children[i])
+            self.write_node(right, node.children[i + 1])
+            return False, None
+        elif left and left.n_keys > (self.order - 1) // 2:
+            self._redistribute_from_left(node, target, left, i)
+            self.write_node(target, node.children[i])
+            self.write_node(left, node.children[i - 1])
+            return False, None
+        else:
+            if right:
+                self._merge_with_right(node, target, right, i)
+                self.write_node(target, node.children[i])
+                node.keys.pop(i)
+                node.children.pop(i + 1)
+                node.n_keys -= 1
+            elif left:
+                self._merge_with_left(node, target, left, i)
+                self.write_node(left, node.children[i - 1])
+                node.keys.pop(i - 1)
+                node.children.pop(i)
+                node.n_keys -= 1
+            self.write_node(node, pos)
+            if node.n_keys == 0:
+                return True, node.children[0]
+            return False, None
+
+    def _redistribute_from_right(self, parent, target, right, i):
+        if target.is_leaf:
+            target.values.append(right.values.pop(0))
+            target.n_keys += 1
+            right.n_keys -= 1
+            parent.keys[i] = right.values[0][0]
+        else:
+            target.keys.append(parent.keys[i])
+            parent.keys[i] = right.keys.pop(0)
+            target.children.append(right.children.pop(0))
+            target.n_keys += 1
+            right.n_keys -= 1
+
+    def _redistribute_from_left(self, parent, target, left, i):
+        if target.is_leaf:
+            target.values.insert(0, left.values.pop())
+            target.n_keys += 1
+            left.n_keys -= 1
+            parent.keys[i - 1] = target.values[0][0]
+        else:
+            target.keys.insert(0, parent.keys[i - 1])
+            parent.keys[i - 1] = left.keys.pop()
+            target.children.insert(0, left.children.pop())
+            target.n_keys += 1
+            left.n_keys -= 1
+
+    def _merge_with_right(self, parent, target, right, i):
+        if target.is_leaf:
+            target.values.extend(right.values)
+            target.n_keys = len(target.values)
+            target.next_leaf = right.next_leaf
+        else:
+            target.keys.append(parent.keys[i])
+            target.keys.extend(right.keys)
+            target.children.extend(right.children)
+            target.n_keys = len(target.keys)
+
+    def _merge_with_left(self, parent, target, left, i):
+        if target.is_leaf:
+            left.values.extend(target.values)
+            left.n_keys = len(left.values)
+            left.next_leaf = target.next_leaf
+        else:
+            left.keys.append(parent.keys[i - 1])
+            left.keys.extend(target.keys)
+            left.children.extend(target.children)
+            left.n_keys = len(left.keys)
+
+

@@ -147,7 +147,7 @@ if __name__ == "__main__":
     executor = VisitorExecutor(db, conn)
     program.accept(executor)
 
-    mostrar_registros_desde_bin(bin_manager, "hashtabletest")
+    mostrar_registros_desde_bin(bin_manager, "btreetabletest")
 
     print("\nRegistros por tabla desde archivos binarios:")
 

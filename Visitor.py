@@ -177,6 +177,97 @@ class VisitorExecutor:
 
         print(f"\nInserción realizada con éxito, se insertaron {len(stmt.values)} a {table_name}")
 
+    def visit_delete(self, stmt):
+        cursor = self.conection.cursor()
+        table_name = stmt.table.lower()
+
+        # 1) Verifico que exista la tabla
+        if table_name not in self.bin_manager.meta:
+            raise ValueError(f"Tabla '{stmt.table}' no encontrada")
+        self.db[table_name] = self.bin_manager.load_table(table_name)
+
+
+        # 2) Construyo la cláusula WHERE para PostgreSQL
+        where_sql = ""
+        params = []
+
+        if stmt.condition is not None:
+            from Constantes import BinaryOp  # Importa si usas BinaryExp
+
+            if isinstance(stmt.condition, BetweenExp):
+                col = stmt.condition.atribute.name
+                low = stmt.condition.left.value
+                high = stmt.condition.right.value
+                where_sql = f" WHERE {col.lower()} BETWEEN %s AND %s"
+                params = [low, high]
+
+            elif isinstance(stmt.condition, BinaryExp):
+                col = stmt.condition.left.name
+                value = stmt.condition.right.value
+                op = stmt.condition.op
+
+                op_map = {
+                    BinaryOp.EQUAL_OP: "=",
+                    BinaryOp.LESS_OP: "<",
+                    BinaryOp.MAYOR_OP: ">",
+                    BinaryOp.EQLESS_OP: "<=",
+                    BinaryOp.EQMAYOR_OP: ">=",
+                    BinaryOp.NOTEQUAL_OP: "<>"
+                }
+
+                if op not in op_map:
+                    raise NotImplementedError(f"Operador '{op}' no soportado en DELETE")
+
+                where_sql = f" WHERE {col.lower()} {op_map[op]} %s"
+                params = [value]
+
+            else:
+                raise NotImplementedError("Solo se soporta BETWEEN o expresiones binarias simples en DELETE")
+
+        # 3) Ejecutar el DELETE en PostgreSQL
+        delete_query = f"DELETE FROM {table_name}{where_sql}"
+        cursor.execute(delete_query, params)
+        deleted_pg = cursor.rowcount
+        self.conection.commit()
+
+        self.db[table_name] = self.bin_manager.load_table(table_name)
+
+        # 4) Eliminar en memoria con condición ya ejecutada y datos nuevos
+        original_rows = list(self.db[table_name])  # Hacemos una copia segura
+
+        def matches(row):
+            if stmt.condition is None:
+                return True
+            return self.eval_condition(stmt.condition, table_name)
+
+        to_delete = [r for r in original_rows if matches(r)]
+        self.db[table_name] = [r for r in original_rows if not matches(r)]
+        deleted_mem = len(to_delete)
+
+        # 5) Actualizar índices
+        meta_cols = self.bin_manager.meta[table_name]["columns"]
+        pk_and_idxs = [col for col in meta_cols if col.get("indexes") or col.get("primary_key")]
+
+        for col in pk_and_idxs:
+            col_name = col["name"]
+            idx_type = (col["indexes"] or [None])[0]
+            mi = MainIndex(table_name, col_name, idx_type, self.conection)
+            for row in to_delete:
+                key = row[col_name]
+                mi.delete(key)
+
+        # 6) Guardar archivo binario actualizado
+        self.bin_manager.save_table(table_name, self.db[table_name])
+
+        # 7) Reporte final
+        print(f"\n🗑  DELETE sobre '{table_name}':")
+        print(f"   • Filas eliminadas en memoria: {deleted_mem}")
+        print(f"   • Filas eliminadas en Postgres: {deleted_pg}")
+        print(f"   • Índices actualizados: {', '.join(c['name'] for c in pk_and_idxs)}")
+        print(f"   • Archivo binario reescrito con {len(self.db[table_name])} filas.")
+
+        cursor.close()
+
     def visit_create(self, stmt):
 
         cursor = self.conection.cursor()
@@ -516,14 +607,17 @@ class VisitorExecutor:
 
 
             case IdExp():
+                if table_name is None:
+                    raise ValueError("Se requiere el nombre de la tabla para evaluar IdExp.")
 
                 atts_of_table = self.bin_manager.get_atts_table(table_name)
+                if atts_of_table is None:
+                    raise ValueError(f"No se pudo obtener los atributos de la tabla '{table_name}'")
 
                 if node.name.lower() not in atts_of_table:
                     raise ValueError(f"Error, el atributo {node.name}, no pertenece a la tabla {table_name}")
 
                 result = node.name.lower()
-
 
             case NumberExp():
                 result = node.value
@@ -533,8 +627,8 @@ class VisitorExecutor:
                 result = node.value
             case BinaryExp():
 
-                v1 = self.visit(node.left)
-                v2 = self.visit(node.right)
+                v1 = self.visit(node.left, table_name)
+                v2 = self.visit(node.right,table_name)
                 op = node.op
 
                 match op:
