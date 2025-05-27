@@ -136,6 +136,16 @@ class BinStorageManager:
 
         cursor = self.pg_conn.cursor()
 
+        # Obtener columnas que son clave primaria
+        cursor.execute("""
+            SELECT a.attname
+            FROM pg_index i
+            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+            WHERE i.indrelid = %s::regclass AND i.indisprimary;
+        """, (table_name.lower(),))
+        pk_columns = [row[0] for row in cursor.fetchall()]
+
+
         # Obtener columnas y tipos
         cursor.execute("""
             SELECT column_name, data_type
@@ -164,13 +174,13 @@ class BinStorageManager:
 
         cursor.close()
 
-        return columns, index_map
+        return columns, index_map, pk_columns
 
     def _reconstruct_header_from_postgres(self, table_name):
         if not self.pg_conn:
             raise ValueError("No se puede reconstruir header: conexión PostgreSQL no proporcionada")
 
-        columns, index_map = self._get_index_postgres(table_name)
+        columns, index_map, pk_columns = self._get_index_postgres(table_name)
 
         def sql_to_token(col_name, sql_type):
             cursor = self.pg_conn.cursor()
@@ -207,7 +217,8 @@ class BinStorageManager:
             header.append({
                 "name": col_name.lower(),
                 "type": sql_to_token(col_name, sql_type),
-                "indexes": index_map.get(col_name, [])
+                "indexes": index_map.get(col_name, []),
+                "primary_key": col_name in pk_columns
             })
 
         return header

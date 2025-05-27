@@ -19,6 +19,8 @@ class Type(Enum):
     KEY = "KEY"
     ON = "ON",
     DROP = "DROP"
+    ALTER = "ALTER"
+    ADD = "ADD"
 
     # Tipos de indices
     INDEX = "INDEX"

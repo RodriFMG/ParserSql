@@ -6,6 +6,22 @@ import psycopg2
 import os
 from MainIndex import MainIndex
 
+def mostrar_registros_desde_bin(bin_manager, table_name):
+    print(f"\n📄 Registros guardados en el archivo binario de '{table_name}':")
+    try:
+        registros = bin_manager.load_records_as_objects(table_name)
+        # Filtra los que están completamente vacíos
+        registros = [r for r in registros if any(v is not None for v in r.to_dict().values())]
+
+        if not registros:
+            print("No hay registros válidos.")
+            return
+
+        for i, r in enumerate(registros, 1):
+            print(f"[{i}] {r}")
+    except Exception as e:
+        print(f"❌ Error al cargar registros desde bin: {e}")
+
 
 # AGREGADO
 def ExtractAllTables(conection):
@@ -84,11 +100,11 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='proydb2',
+        dbname='postgres',
         user='postgres',
-        password='2019wess:v',
+        password='123',
         host='localhost',
-        port="5432"
+        port="5433"
     )
 
     # Extraer TODAS las tablas de la base de datos
@@ -110,13 +126,15 @@ if __name__ == "__main__":
             print(f"[BIN] Tabla '{table}' desactualizada. Guardando nueva versión.")
             bin_manager.save_table(table, db[table])
             print("tabla actual: ", table)
-            columns, index_map = bin_manager._get_index_postgres(table)
+            columns, index_map, pk_columns = bin_manager._get_index_postgres(table)
             CreateIndexOfPostgresToPython(table, index_map, conn, columns,
                                           default_index="AVL")
 
     # Ejecutar código
     executor = VisitorExecutor(db, conn)
     program.accept(executor)
+
+    mostrar_registros_desde_bin(bin_manager, "hashtabletest")
 
     print("\nRegistros por tabla desde archivos binarios:")
 

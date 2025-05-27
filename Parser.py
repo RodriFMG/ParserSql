@@ -1,9 +1,8 @@
 from Token import Token, Type
 from Scanner import Scanner
 from Objects import Stms, Program, SelectStatement, NumberExp, IdExp, BoolExp, BinaryExp, StringExp, InsertStatement, \
-    DeleteStatement, CreateTable, CreateTableFromFile, BetweenExp, CreateIndex, DropIndex
+    DeleteStatement, CreateTable, CreateTableFromFile, BetweenExp, CreateIndex, DropIndex, AlterAddPrimaryKey
 from Constantes import BinaryOp
-
 
 class ParserSQL:
 
@@ -258,7 +257,7 @@ class ParserSQL:
 
                     return CreateTable(name, columns)
 
-            if self.match(Type.INDEX):
+            elif self.match(Type.INDEX):
                 if not self.match(Type.ID):
                     raise ValueError("Se esperaba un ID para el nombre del indice")
 
@@ -305,7 +304,7 @@ class ParserSQL:
                 raise ValueError(f"Se esperaba un CREATE INDEX o CREATE TABLE, pero se encontró: CREATE {self.current.text}")
 
 
-        if self.match(Type.DROP):
+        elif self.match(Type.DROP):
             if not self.match(Type.INDEX):
                 raise ValueError("Se esperaba un INDEX para dropear")
 
@@ -315,6 +314,37 @@ class ParserSQL:
             index_name = self.previous.text
 
             return DropIndex(index_name)
+
+        elif self.match(Type.ALTER):
+            if not self.match(Type.TABLE):
+                raise ValueError("Se esperaba 'TABLE' después de 'ALTER'")
+
+            if not self.match(Type.ID):
+                raise ValueError("Se esperaba el nombre de la tabla")
+
+            table_name = self.previous.text
+
+            if not self.match(Type.ADD):
+                raise ValueError("Se esperaba 'ADD' después de 'ALTER TABLE <tabla>'")
+
+            if not self.match(Type.PRIMARY):
+                raise ValueError("Se esperaba 'PRIMARY' después de 'ADD'")
+
+            if not self.match(Type.KEY):
+                raise ValueError("Se esperaba 'KEY' después de 'PRIMARY'")
+
+            if not self.match(Type.LPAREN):
+                raise ValueError("Se esperaba '(' después de 'PRIMARY KEY'")
+
+            if not self.match(Type.ID):
+                raise ValueError("Se esperaba el nombre de la columna para PRIMARY KEY")
+
+            column_name = self.previous.text
+
+            if not self.match(Type.RPAREN):
+                raise ValueError("Se esperaba ')' después del nombre de columna")
+
+            return AlterAddPrimaryKey(table_name, column_name)
 
         else:
             raise ValueError(f"Sentencia no reconocida: {self.current.text}")

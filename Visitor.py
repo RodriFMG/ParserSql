@@ -146,19 +146,24 @@ class VisitorExecutor:
 
                 if type_att.lower() == "serial":
                     last_row_table = self.bin_manager.get_last_row_by_attribute(stmt.table, select_att_to_insert)
-                    att_idx_insert = last_row_table[select_att_to_insert] + 1
+
+                    if last_row_table is None:
+                        att_idx_insert = 1
+                    else:
+                        att_idx_insert = last_row_table[select_att_to_insert] + 1
 
                     setattr(insert_record, select_att_to_insert.lower(), att_idx_insert)
 
+
                 else:
                     raise ValueError("Error, key o atributo: None, al insertar y además no es tipo serial!")
-
-
             Index.insert(
                 key=att_idx_insert,
                 record=insert_record
             )
 
+        self.db[table_name].extend([r.to_dict() for r in record_generic_list])
+        self.bin_manager.save_table(table_name, self.db[table_name])
         # Guardar los cambios realizados
         self.conection.commit()
         cursor.close()
@@ -236,7 +241,8 @@ class VisitorExecutor:
                 "type": full_type,
 
                 # Para que el indice por default sea BTREE
-                "indexes": [index.lower()] if index else "avl"
+                "indexes": [index.lower()] if index else "avl",
+                "primary_key": is_pk
             })
 
 
@@ -413,7 +419,76 @@ class VisitorExecutor:
         self.conection.commit()
         cursor.close()
 
+    def visit_alter_add_primary_key(self, stmt):
+        table_name = stmt.table_name.lower()
+        column_name = stmt.column_name.lower()
 
+        # Verificar si la tabla está registrada en el meta.json
+        if table_name not in self.bin_manager.meta:
+            raise ValueError(f"La tabla '{table_name}' no existe.")
+
+        # Intentar cargar la tabla si aún no está cargada en self.db
+        if table_name not in self.db:
+            try:
+                self.db[table_name] = self.bin_manager.load_table(table_name)
+            except Exception as e:
+                raise ValueError(f"No se pudo cargar la tabla '{table_name}': {e}")
+
+        # Obtener lista de columnas
+        if not self.db[table_name]:
+            meta_info = self.bin_manager.meta.get(table_name)
+            if not meta_info:
+                raise ValueError(f"No se pudo obtener información de la tabla '{table_name}'")
+            columnas = [col["name"] for col in meta_info["columns"]]
+        else:
+            columnas = list(self.db[table_name][0].keys())
+
+        if column_name not in columnas:
+            raise ValueError(f"La columna '{column_name}' no existe en la tabla '{table_name}'")
+
+        cursor = self.conection.cursor()
+
+        # Verificar si ya existe una primary key en PostgreSQL
+        cursor.execute("""
+            SELECT a.attname
+            FROM pg_index i
+            JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+            WHERE i.indrelid = %s::regclass AND i.indisprimary;
+        """, (table_name,))
+        existing_pk = cursor.fetchall()
+
+        if existing_pk:
+            raise ValueError(f"La tabla '{table_name}' ya tiene una clave primaria definida: {existing_pk[0][0]}")
+
+        # Verificar si ya existe en el meta.json una columna marcada como primary_key
+        meta_info = self.bin_manager.meta.get(table_name)
+        for col in meta_info.get("columns", []):
+            if col.get("primary_key", False):
+                raise ValueError(
+                    f"La tabla '{table_name}' ya tiene una clave primaria definida en el meta.json: {col['name']}")
+
+        # 🔧 Ejecutar ALTER TABLE en PostgreSQL
+        try:
+            query = sql.SQL("ALTER TABLE {table} ADD PRIMARY KEY ({column});").format(
+                table=sql.Identifier(table_name),
+                column=sql.Identifier(column_name)
+            )
+            cursor.execute(query)
+            self.conection.commit()
+            print(f"\nSe ha agregado PRIMARY KEY sobre la columna '{column_name}' en la tabla '{table_name}'")
+
+            # Actualizar el meta.json
+            for col in meta_info["columns"]:
+                if col["name"] == column_name:
+                    col["primary_key"] = True
+            meta_info["last_modified"] = datetime.now().isoformat()
+            self.bin_manager._save_metadata()
+
+        except Exception as e:
+            self.conection.rollback()
+            raise ValueError(f"Error al ejecutar ALTER TABLE: {e}")
+        finally:
+            cursor.close()
 
     def eval_condition(self, exp, row=None):
 

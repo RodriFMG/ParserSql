@@ -179,6 +179,14 @@ class DropIndex(Stms):
     def accept(self, visitor):
         return visitor.visit_drop_index(self)
 
+class AlterAddPrimaryKey(Stms):
+    def __init__(self, table_name, column_name):
+        super().__init__()
+        self.table_name = table_name
+        self.column_name = column_name
+
+    def accept(self, visitor):
+        return visitor.visit_alter_add_primary_key(self)
 
 # PROGRAMA PRINCIPAL
 

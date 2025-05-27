@@ -50,20 +50,28 @@ class MainIndex:
                 with open(self.bin_path_index, "wb") as f:
                     pass
 
-            self.Index = GetIndex[self.typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
-                                             records=records_table,
-                                             is_create_bin=False,
-                                             data_name=self.bin_path_table_index,
-                                             size_kh=size_keyhandler)
+            self.Index = GetIndex[self.typeIndex](
+                self.attribute,
+                self.attribute_type,
+                self.bin_path_index,
+                records=records_table,
+                is_create_bin=False,
+                data_name=self.bin_path_table_index,
+                size_kh=size_keyhandler
+            )
 
         else:
-            self.Index = GetIndex[self.typeIndex](self.attribute, self.attribute_type, self.bin_path_index,
-                                             is_create_bin=True,
-                                             data_name=self.bin_path_table_index,
-                                             size_kh=size_keyhandler)
+            self.Index = GetIndex[self.typeIndex](
+                self.attribute,
+                self.attribute_type,
+                self.bin_path_index,
+                is_create_bin=True,
+                data_name=self.bin_path_table_index,
+                size_kh=size_keyhandler
+            )
 
     def insert(self, key, record):
-        self.Index.insert(key, record)
+        self.Index.insert_record(key, record)
 
     def search(self, idx):
         return self.Index.search(idx)
