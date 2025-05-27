@@ -2,7 +2,7 @@ import struct
 import os
 import sys
 import numpy as np
-from bin_data.Record import RecordGeneric
+
 class KeyHandler:
     def __init__(self, tipo: str, size=50):
         self.tipo = tipo.lower()
@@ -28,7 +28,52 @@ class KeyHandler:
     def compare(self, a, b):
         return (a > b) - (a < b)
 
+class RecordGeneric:
+    type_map = {
+        int: 'i',
+        float: 'f',
+        str: '50s'
+    }
 
+    def __init__(self, attribute_names):
+        self._attributes = attribute_names
+        for name in attribute_names:
+            setattr(self, name, None)
+
+    def build_format(self):
+
+        self.FORMAT = ''
+        for attr in self._attributes:
+            val = getattr(self, attr)
+
+            attr_type = type(val) if val is not None else str
+
+            self.FORMAT += self.type_map.get(attr_type, '50s')
+        self.FORMAT_SIZE = struct.calcsize(self.FORMAT)
+
+    def to_bytes(self):
+
+        values = []
+        for attr in self._attributes:
+            val = getattr(self, attr)
+            if isinstance(val, str):
+                val_bytes = val.encode('utf-8')[:50].ljust(50, b'\x00')
+                values.append(val_bytes)
+            else:
+                values.append(val if val is not None else 0)
+        return struct.pack(self.FORMAT, *values)
+
+    def from_bytes(self, data):
+        values = struct.unpack(self.FORMAT, data)
+        for attr, val in zip(self._attributes, values):
+            if isinstance(val, bytes):
+                setattr(self, attr, val.rstrip(b'\x00').decode('utf-8'))
+            else:
+                setattr(self, attr, val)
+        return self
+
+    def to_dict(self):
+        return {attr: getattr(self, attr) for attr in self._attributes}
 
 
 class LeafNode:
@@ -51,6 +96,7 @@ class LeafNode:
         for i in range(order - 1):
             if i < self.n_keys:
                 key = self.key_handler.serialize(self.values[i][0])
+
                 pos = struct.pack('q', self.values[i][1])
             else:
                 # Rellenar con clave "vacía" del tipo correcto
@@ -169,7 +215,7 @@ class BTreeIndex:
 
 
         self.node_file = file_name
-        self.data_file = os.path.join(data_name, "data.bin")
+        self.data_file = data_name
         self.order = order
         self.key_handler = KeyHandler(tipo=atribute_type, size=size_kh)
         self.record_count = 0
@@ -254,10 +300,8 @@ class BTreeIndex:
             f.write(struct.pack(self.HEADER_FORMAT, self.root_pos, self.order, self.record_count))
         return pos
 
-    def insert_record(self, key, record: RecordGeneric):
-        if key is None:
-            key = getattr(record, record._attributes[self.key_attr_index])
-        path = os.path.join(self.data_file, 'data.databin')
+    def insert_record(self, record: RecordGeneric):
+        key = getattr(record, record._attributes[self.key_attr_index])
         with open(self.data_file, 'ab') as f:
             f.write(record.to_bytes())
         pos = self.record_count

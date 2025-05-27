@@ -10,9 +10,10 @@ from bin_data.Record import RecordGeneric
 
 
 class VisitorExecutor:
-    def __init__(self, db, conn):
+    def __init__(self, db, conn, default_index = "AVL"):
         self.db = db
         self.conection = conn
+        self.default_index = default_index.upper()
 
         #Agregado
         self.bin_manager = BinStorageManager(
@@ -43,11 +44,12 @@ class VisitorExecutor:
 
         ################## INDEXAR #######################
 
-        indices_of_att = self.bin_manager.get_indexs_att(table_name, stmt.atributos[0])
+        if stmt.condition:
+            selected_rows = self.eval_condition(stmt.condition, table_name)
+        else:
 
-        Index = MainIndex(stmt.table, stmt.atributos[0], indices_of_att[0].upper(), self.conection)
 
-        selected_rows = Index.range_search(1, 40)
+            selected_rows = []
 
         print("\nResultado del SELECT:")
         for r in selected_rows:
@@ -94,23 +96,14 @@ class VisitorExecutor:
             values=sql.SQL(', ').join(sql.Placeholder() * len(stmt.atributos))
         )
 
-        # Funciona si el primary key es SIMILAR y numérico ( corregir luego ).
-        #last_id = self.db[table_name][-1]['id']
-
-        #ACTUAL:
-        if self.db[table_name]:
-            last_id = int(self.db[table_name][-1].get('id', 0))
-        else:
-            last_id = 0
-
         ################## INDEXAR #######################
 
         atts_table = self.bin_manager.get_atts_table(stmt.table)
 
         if "id" in atts_table:
             select_att_to_insert = "id"
-            get_index_id = self.bin_manager.get_indexs_att(stmt.table, "id")
-            Index = MainIndex(stmt.table, "id", get_index_id[0], self.conection)
+            get_index_id = self.bin_manager.get_indexs_att(stmt.table, select_att_to_insert)
+            Index = MainIndex(stmt.table, select_att_to_insert, get_index_id[0], self.conection)
         else:
 
             select_att_to_insert = atts_table[0]
@@ -156,7 +149,7 @@ class VisitorExecutor:
 
 
                 else:
-                    raise ValueError("Error, key o atributo: None, al insertar y además no es tipo serial!")
+                    raise ValueError("Error, key o atributo: None, al insertar. Además no es tipo serial!")
             Index.insert(
                 key=att_idx_insert,
                 record=insert_record
@@ -252,10 +245,9 @@ class VisitorExecutor:
                 "type": full_type,
 
                 # Para que el indice por default sea BTREE
-                "indexes": [index.lower()] if index else "avl",
+                "indexes": [index.lower(), self.default_index.lower()] if index else [self.default_index.lower()],
                 "primary_key": is_pk
             })
-
 
         self.bin_manager.save_table(stmt.name, self.db[stmt.name], header=header)
 
@@ -264,13 +256,23 @@ class VisitorExecutor:
 
         for att_content in stmt.columns:
 
-            # Declarar indice por default el BTREE
+            # Declarar indice por default el AVL
             att_content[3] = att_content[3] or "AVL"
 
             if att_content[3] not in att_index:
                 att_index[att_content[3]] = []
 
             att_index[att_content[3]].append(att_content[0])
+
+        # Agregar default index
+
+        if self.default_index not in att_index:
+            att_index[self.default_index] = []
+
+        for att_content in stmt.columns:
+            if att_content[0] not in att_index[self.default_index]:
+                att_index[self.default_index].append(att_content[0])
+
 
         # Añadiendo los indices
 
@@ -279,6 +281,7 @@ class VisitorExecutor:
             # Indices no existentes en POSTGRES ( se usarán solamente en el python, no se insertaran en el postgres.
             if index in ["SEQ", "ISAM"]:
                 continue
+
 
             index_to_aplicar = index
             for attr in att_index[index]:
@@ -298,6 +301,7 @@ class VisitorExecutor:
 
                 # Creando cada indice
                 cursor.execute(query)
+
 
         # Guardamos los cambios
         self.conection.commit()
@@ -345,24 +349,30 @@ class VisitorExecutor:
 
         #### Creando los indices ####
 
+
         for col in keys:
 
-            to_indexar = "AVL"
-            if col == stmt.index_field:
-                to_indexar = stmt.index_type or to_indexar
+            to_indexar = [self.default_index]
+            if stmt.index_field and col == stmt.index_field and self.default_index != stmt.index_type:
+                to_indexar = [stmt.index_type, self.default_index]
+
+                # Insertar el indice en postgres solo si es el declarado en el CSV o ese indice existe en postgres.
+                if stmt.index_type in ["BTREE", "HASH"]:
+                    index_name = f"csv_{stmt.name.lower()}_{stmt.index_type.lower()}_{stmt.index_field.lower()}_idx"
+
+                    index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
+                        name=sql.Identifier(index_name),
+                        table=sql.Identifier(stmt.name.lower()),
+                        idx=sql.SQL(stmt.index_type.lower()),
+                        attribute=sql.Identifier(stmt.index_field.lower())
+                    )
+
+                    cursor.execute(index_query)
+
+            for indices_yo_aply in to_indexar:
+                self.bin_manager.add_index_to_attribute(stmt.name, col, indices_yo_aply)
 
 
-            if to_indexar in ["BTREE", "HASH"]:
-                index_name = f"{stmt.name.lower()}_{to_indexar.lower()}_{stmt.index_field.lower()}_idx"
-
-                index_query = sql.SQL("CREATE INDEX {name} ON {table} USING {idx} ({attribute})").format(
-                    name=sql.Identifier(index_name),
-                    table=sql.Identifier(stmt.name.lower()),
-                    idx=sql.SQL(to_indexar.lower()),
-                    attribute=sql.Identifier(stmt.index_field.lower())
-                )
-
-                cursor.execute(index_query)
 
 
         header = self.bin_manager._reconstruct_header_from_postgres(stmt.name)
@@ -501,25 +511,30 @@ class VisitorExecutor:
         finally:
             cursor.close()
 
-    def eval_condition(self, exp, row=None):
+    def eval_condition(self, exp, table_name=None):
 
         # Si por alguna razón entra, se considera.
         if exp is None:
             return True
 
-        return self.visit(exp, row)
+        return self.visit(exp, table_name)
 
-    def visit(self, node, row=None):
+    def visit(self, node, table_name=None):
 
         result = 0
 
         match node:
+
+
             case IdExp():
 
-                if row:
-                    result = row.get(node.name.lower())
-                else:
-                    result = node.name.lower()
+                atts_of_table = self.bin_manager.get_atts_table(table_name)
+
+                if node.name.lower() not in atts_of_table:
+                    raise ValueError(f"Error, el atributo {node.name}, no pertenece a la tabla {table_name}")
+
+                result = node.name.lower()
+
 
             case NumberExp():
                 result = node.value
@@ -529,8 +544,8 @@ class VisitorExecutor:
                 result = node.value
             case BinaryExp():
 
-                v1 = self.visit(node.left, row)
-                v2 = self.visit(node.right, row)
+                v1 = self.visit(node.left)
+                v2 = self.visit(node.right)
                 op = node.op
 
                 match op:
@@ -568,6 +583,23 @@ class VisitorExecutor:
                         result = int(v1 or v2)
                     case BinaryOp.NOT_OP:
                         result = int(not v2)
+
+            case BetweenExp():
+
+                att_query = self.visit(node.atribute, table_name)
+
+                indexs_to_att = self.bin_manager.get_indexs_att(table_name, att_query)
+
+                v1 = self.visit(node.left, table_name)
+                v2 = self.visit(node.right, table_name)
+
+                for index in indexs_to_att:
+                    index_query = MainIndex(table_name, att_query, index, self.conection)
+
+                    result = index_query.range_search(v1, v2)
+                    if result:
+                        break
+
 
         return result
 

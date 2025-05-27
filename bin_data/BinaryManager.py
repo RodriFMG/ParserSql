@@ -6,10 +6,12 @@ from datetime import date, datetime
 from .Record import RecordGeneric
 import psycopg2
 
+
 class BinStorageManager:
 
     def __init__(self, bin_dir='bin_data/Tablas/', pg_conn=None):
 
+        self.meta = None
         self.bin_dir = bin_dir
         self.meta_file = os.path.join(bin_dir, "meta.json")
         os.makedirs(bin_dir, exist_ok=True)
@@ -22,6 +24,48 @@ class BinStorageManager:
                 self.meta = json.load(f)
         else:
             self.meta = {}
+
+    def add_index_to_attribute(self, table_name, attribute_name, index_type):
+
+        table_name = table_name.lower()
+        attribute_name = attribute_name.lower()
+        index_type = index_type.lower()
+
+        try:
+            with open(self.meta_file, "r", encoding="utf-8") as f:
+                self.meta = json.load(f)
+
+            if table_name not in self.meta:
+                raise ValueError(f"La tabla '{table_name}' no existe en metadata.")
+
+            updated = False
+            for column in self.meta[table_name]["columns"]:
+                if column["name"].lower() == attribute_name:
+
+                    # por siaca, porque lo hacemos en un inicio
+                    if "indexes" not in column:
+                        column["indexes"] = []
+
+                    if index_type not in column["indexes"]:
+                        column["indexes"].append(index_type)
+                        updated = True
+                    break
+            else:
+                raise ValueError(f"El atributo '{attribute_name}' no existe en la tabla '{table_name}'.")
+
+            if updated:
+
+                # Actualiza el timestamp de modificación
+                self.meta[table_name]["last_modified"] = datetime.now().isoformat()
+
+                with open(self.meta_file, "w", encoding="utf-8") as f:
+                    json.dump(self.meta, f, indent=4)
+
+            else:
+                print(f"El índice '{index_type}' ya existe para el atributo '{attribute_name}'.")
+
+        except Exception as e:
+            print(f"Error al agregar índice: {e}")
 
     def get_type_att(self, table_name, attribute_name):
 

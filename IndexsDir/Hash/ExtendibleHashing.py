@@ -43,9 +43,7 @@ class ExtendibleHashingIndex:
 
         create_path_att = os.path.join(data_name, atribute_index)
 
-        if os.path.exists(create_path_att):
-            with open(create_path_att, "wb") as f:
-                pass
+        os.makedirs(create_path_att, exist_ok=True)
 
         self.BUCKETS_PATH = os.path.join(create_path_att, "buckets.dat")
         self.DIRECTORY_PATH = os.path.join(create_path_att, "directory.dat")
@@ -54,14 +52,16 @@ class ExtendibleHashingIndex:
 
         self.init_files()
 
-        if not is_create_bin and records:
-            for i, record in enumerate(records):
-                key = record.to_dict()[self.atribute_index]
-                # print("//" * 20)
-                # print(f"🔑 Insertando clave: {key} (pos: {i})")
-                self.insert(key, i)
-                #self.print_ll()  // print info extendible
-                # print("//" * 20)
+        if not is_create_bin:
+
+            if len(records) > 1:
+                for i, record in enumerate(records):
+                    key = record.to_dict()[self.atribute_index]
+                    # print("//" * 20)
+                    # print(f"🔑 Insertando clave: {key} (pos: {i})")
+                    self.insert(key, i)
+                    #self.print_ll()  // print info extendible
+                    # print("//" * 20)
 
     def hash_key(self, key):
         key_bytes = self.key_handler.serialize(key)

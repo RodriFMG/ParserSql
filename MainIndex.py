@@ -15,7 +15,7 @@ class MainIndex:
     def __init__(self, table_name, atributte_name, typeIndex, conn):
 
         self.table = table_name.lower()
-        self.attribute = atributte_name
+        self.attribute = atributte_name.lower()
 
         typeIndex = typeIndex or "AVL"
 
@@ -35,7 +35,7 @@ class MainIndex:
 
         if records_table:
             size_keyhandler = np.max([
-                sys.getsizeof(record.to_dict()[atributte_name.lower()])
+                sys.getsizeof(record.to_dict()[self.attribute])
                 for record
                 in records_table])
         else:
@@ -46,7 +46,7 @@ class MainIndex:
 
         if not os.path.exists(self.bin_path_index):
 
-            if typeIndex not in ["RTREE", "HASH"]:
+            if self.typeIndex not in ["RTREE", "HASH"]:
                 with open(self.bin_path_index, "wb") as f:
                     pass
 
@@ -79,7 +79,8 @@ class MainIndex:
     def range_search(self, idx1, idx2):
 
         if self.typeIndex == "HASH":
-            print(f"El indice {self.typeIndex} no soporta RangeQuery")
+            print(f"El indice {self.typeIndex} no soporta RangeQuery\n")
+            return None
 
         return self.Index.range_search(idx1, idx2)
 
@@ -89,13 +90,15 @@ class MainIndex:
     def kNN(self, point, k):
 
         if self.typeIndex != "RTREE":
-            print(f"El indice {self.typeIndex} no soporta kNN")
+            print(f"El indice {self.typeIndex} no soporta kNN\n")
+            return None
 
         return self.Index.knn_search(point, k)
 
     def range_radio(self, point, r):
 
         if self.typeIndex != "RTREE":
-            print(f"El indice {self.typeIndex} no soporta busqueda por radio")
+            print(f"El indice {self.typeIndex} no soporta busqueda por radio\n")
+            return None
 
         return self.Index.range_radio(point, r)

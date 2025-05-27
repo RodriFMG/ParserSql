@@ -9,8 +9,18 @@ class RTreeIndex:
 
         atribute_type = atribute_type.lower()
 
-        if atribute_type not in ["int", "serial", "float", "array"]:
-            raise ValueError("El Rtree solo funciona con tipo enteros.")
+        if atribute_type not in ["int", "serial", "float"]:
+
+            # Si es array, validamos su tipo interno
+            if atribute_type.startswith("array[") and atribute_type.endswith("]"):
+                inner_type = atribute_type[6:-1].strip()
+                inner_type = inner_type.lower()
+
+                if inner_type not in ["int", "serial", "float"]:
+                    raise ValueError(f"El RTree no soporta arrays de tipo '{inner_type}'.")
+            else:
+
+                raise ValueError("El RTree solo funciona con tipo enteros, float o arrays de estos.")
 
         self.filename = file_name
         self.atribute_index = atribute_index

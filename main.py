@@ -73,17 +73,30 @@ def ver_tokens(code):
             break
 
 
-def CreateIndexOfPostgresToPython(table_name, index_map, pg_conn, columns, default_index = "AVL"):
+def CreateIndexOfPostgresToPython(table_name, index_map, pg_conn, columns,
+                                  bin_manager , default_index = "AVL"):
 
     atts_table = [att[0] for att in columns]
+    default_index = default_index.upper()
+
 
     for att in atts_table:
 
+        # Se realiza este if, porque los atributos que no tengan un indice colocado
+        # postgres lo manda como una lista vacia.
         if att in index_map.keys():
+
+            if default_index not in index_map[att]:
+                index_map[att].append(default_index)
+
             for index in index_map[att]:
                 _ = MainIndex(table_name, att, index, pg_conn)
+                bin_manager.add_index_to_attribute(table_name, att, index)
+
         else:
+
             _ = MainIndex(table_name, att, default_index, pg_conn)
+            bin_manager.add_index_to_attribute(table_name, att, default_index)
 
 
 if __name__ == "__main__":
@@ -100,11 +113,11 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='postgres',
+        dbname='proydb2',
         user='postgres',
-        password='123',
+        password='2019wess:v',
         host='localhost',
-        port="5433"
+        port="5432"
     )
 
     # Extraer TODAS las tablas de la base de datos
@@ -127,7 +140,7 @@ if __name__ == "__main__":
             bin_manager.save_table(table, db[table])
             print("tabla actual: ", table)
             columns, index_map, pk_columns = bin_manager._get_index_postgres(table)
-            CreateIndexOfPostgresToPython(table, index_map, conn, columns,
+            CreateIndexOfPostgresToPython(table, index_map, conn, columns, bin_manager,
                                           default_index="AVL")
 
     # Ejecutar código
