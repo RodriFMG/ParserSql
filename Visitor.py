@@ -47,9 +47,8 @@ class VisitorExecutor:
         if stmt.condition:
             selected_rows = self.eval_condition(stmt.condition, table_name)
         else:
-
-
             selected_rows = []
+
 
         print("\nResultado del SELECT:")
         for r in selected_rows:

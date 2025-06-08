@@ -21,7 +21,7 @@ class KeyHandler:
             return struct.unpack('i', data)[0]
         elif self.tipo == 'float':
             return struct.unpack('f', data)[0]
-        elif self.tipo == 'str'or self.tipo == 'text':
+        elif self.tipo == 'str' or self.tipo == 'text':
             return data.rstrip(b'\x00').decode('utf-8')
 
     def compare(self, a, b):
@@ -58,6 +58,7 @@ class AVLIndex:
             self.filename = file_name
             self.record_size = (self.key_handler.size if self.key_handler.tipo == 'str' or self.key_handler.tipo == 'text' else 4) + 16
 
+            print(self.filename)
             if not is_create_bin:
 
                 with open(self.filename, "wb") as f:
@@ -66,7 +67,8 @@ class AVLIndex:
                 # records[0] = cabeceras
                 if len(records) > 1:
                     for i, record in enumerate(records):
-                        self.insert_record(record.to_dict()[atribute_index.lower()], i)
+                        record.UpdatePos(i)
+                        self.insert_record(record.to_dict()[atribute_index.lower()], record)
 
                 print(f"Índice AVL creado exitosamente en {self.filename}")
 
@@ -141,6 +143,7 @@ class AVLIndex:
         return pos
 
     def insert_record(self, key, record):
+
         if not hasattr(record, "_pos"):
             raise ValueError(
                 "AVLIndex necesita la posición del registro en el archivo binario. Asigna record._pos antes de insertarlo.")

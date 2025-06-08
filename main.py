@@ -113,11 +113,11 @@ if __name__ == "__main__":
 
     # Conexión a la base de datos
     conn = psycopg2.connect(
-        dbname='postgres',
+        dbname='proydb2',
         user='postgres',
-        password='123',
+        password='2019wess:v',
         host='localhost',
-        port="5433"
+        port="5432"
     )
 
     # Extraer TODAS las tablas de la base de datos
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     executor = VisitorExecutor(db, conn)
     program.accept(executor)
 
-    mostrar_registros_desde_bin(bin_manager, "btreetabletest")
+    #mostrar_registros_desde_bin(bin_manager, "btreetabletest")
 
     print("\nRegistros por tabla desde archivos binarios:")
 
